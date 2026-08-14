@@ -26,7 +26,7 @@ export interface ResolvedConfig {
 }
 
 /** Cordis configuration metadata. Defaults are applied only by {@link resolveConfig}. */
-export const Config = Schema.object({
+export const Config: Schema<Config> = Schema.object({
   previewMode: Schema.union([
     Schema.const('names-only'),
     Schema.const('redacted'),
@@ -38,7 +38,7 @@ export const Config = Schema.object({
   velocityWindowMs: Schema.number().step(1).min(1_000).max(60_000),
   maxLiveRows: Schema.number().step(1).min(50).max(2_000),
   maxPendingFrames: Schema.number().step(1).min(8).max(512),
-})
+}) as Schema<Config>
 
 const DEFAULT_CONFIG: ResolvedConfig = {
   previewMode: 'names-only',
