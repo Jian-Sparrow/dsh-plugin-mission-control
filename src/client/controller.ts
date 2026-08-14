@@ -11,6 +11,7 @@ export type ControllerSnapshot =
 export class MissionControlController {
   private readonly listeners = new Set<() => void>()
   private generation = 0
+  private returnFocus: HTMLElement | undefined
   private state: ControllerSnapshot = { open: false }
 
   /** @returns the current overlay state. */
@@ -32,7 +33,8 @@ export class MissionControlController {
    * Open a fresh viewing generation for one Session.
    * @param sessionId - current Harness Session id.
    */
-  open(sessionId: string): void {
+  open(sessionId: string, returnFocus?: HTMLElement): void {
+    this.returnFocus = returnFocus
     this.state = { open: true, sessionId, generation: ++this.generation }
     this.notify()
   }
@@ -42,6 +44,9 @@ export class MissionControlController {
     if (!this.state.open) return
     this.state = { open: false }
     this.notify()
+    const target = this.returnFocus
+    this.returnFocus = undefined
+    queueMicrotask(() => { target?.focus() })
   }
 
   private notify(): void {
