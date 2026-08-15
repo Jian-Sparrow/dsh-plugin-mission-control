@@ -71,8 +71,13 @@ describe('Mission Control browser registration', () => {
       close: vi.fn(),
     }))
     let current: string | undefined = 'mission-session'
-    const useSessions = <Selected,>(selector: (value: { current?: string }) => Selected) =>
-      selector(current === undefined ? {} : { current })
+    const useSessions = <Selected,>(selector: (value: {
+      current?: string
+      byId: Record<string, { displayTitle: string }>
+    }) => Selected) => selector({
+      ...(current === undefined ? {} : { current }),
+      byId: { 'mission-session': { displayTitle: 'Mission' } },
+    })
 
     const headerProps = {
       controller,
@@ -86,6 +91,7 @@ describe('Mission Control browser registration', () => {
     const overlayProps = {
       controller,
       createSource: created,
+      settings: { previewMode: 'names-only', maxLiveRows: 20, velocityWindowMs: 5_000 },
       useSessions,
       t,
     } as unknown as ComponentProps<typeof MissionControlOverlay>

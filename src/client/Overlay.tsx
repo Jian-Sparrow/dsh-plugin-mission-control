@@ -5,11 +5,14 @@ import type { MissionControlController } from './controller.ts'
 import { MissionSource, type EventSourceFactory } from './source.ts'
 import { MissionStore } from './store.ts'
 import type { NS } from './locales.ts'
+import type { ResolvedConfig } from '../config.ts'
+import { MissionDashboard } from './components/MissionDashboard.tsx'
 
 /** Browser resources injected into the global overlay contribution. */
 export interface MissionOverlayInjected {
   readonly controller: MissionControlController
   readonly createSource?: EventSourceFactory
+  readonly settings: Pick<ResolvedConfig, 'previewMode' | 'maxLiveRows' | 'velocityWindowMs'>
 }
 
 type OverlayProps = PropsRuntime<'shell.overlay'>
@@ -32,15 +35,15 @@ export function MissionControlOverlay(props: OverlayProps): ReactNode {
   return <LiveMission {...props} sessionId={state.sessionId} generation={state.generation} />
 }
 
-function LiveMission({ controller, createSource, sessionId, generation, t }: OverlayProps & {
+function LiveMission({ controller, createSource, settings, sessionId, generation, t, useSessions }: OverlayProps & {
   readonly sessionId: string
   readonly generation: number
 }): ReactNode {
   const store = useMemo(() => new MissionStore({
     generation,
-    maxLiveRows: 500,
-    velocityWindowMs: 10_000,
-  }), [generation])
+    maxLiveRows: settings.maxLiveRows,
+    velocityWindowMs: settings.velocityWindowMs,
+  }), [generation, settings.maxLiveRows, settings.velocityWindowMs])
   const source = useMemo(() => new MissionSource(store, createSource), [createSource, store])
 
   useEffect(() => {
@@ -64,7 +67,13 @@ function LiveMission({ controller, createSource, sessionId, generation, t }: Ove
         >×</button>
       </header>
       <main className="mc-overlay__body">
-        <p className="mc-overlay__connecting">{t('overlay.connecting')}</p>
+        <MissionDashboard
+          store={store}
+          controller={controller}
+          sessionTitle={useSessions(state => state.byId[sessionId as keyof typeof state.byId]?.displayTitle ?? sessionId)}
+          previewMode={settings.previewMode}
+          t={t}
+        />
       </main>
     </section>
   )

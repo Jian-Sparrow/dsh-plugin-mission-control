@@ -9,6 +9,7 @@ import { MissionControlController } from './controller.ts'
 import { en, NS, zh, type MissionControlKey } from './locales.ts'
 import { MissionControlOverlay } from './Overlay.tsx'
 import { installStyles } from './styles.ts'
+import { resolveConfig, type Config } from '../config.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -26,8 +27,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export const inject = ['sessions', 'slots', 'locale']
 
 /** Register global and Session actions plus the persistent full-screen overlay. */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: ClientContext, config: Config = {}): void {
   const controller = new MissionControlController()
+  const settings = resolveConfig(config)
   ctx.provide('missionControl', controller)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mission-control: browser dictionaries')
   ctx.effect(installStyles, 'mission-control: browser stylesheet')
@@ -50,7 +52,7 @@ export function apply(ctx: ClientContext): void {
     id: 'mission-control-overlay',
     order: 30,
     locale: NS,
-    inject: () => ({ controller }),
+    inject: () => ({ controller, settings }),
   }, MissionControlOverlay))
 }
 
