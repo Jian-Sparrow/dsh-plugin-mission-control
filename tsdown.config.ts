@@ -31,8 +31,11 @@ export default defineConfig([
     dts: false,
     sourcemap: true,
     clean: false,
-    external: clientExternals,
-    noExternal: (id: string) => clientExternals.includes(id) ? undefined : true,
+    deps: {
+      neverBundle: clientExternals,
+      alwaysBundle: (id: string) => !clientExternals.includes(id),
+      onlyBundle: ['zod', 'd3-hierarchy', '@deepseek-ai/cosmokit', '@deepseek-ai/schemastery'],
+    },
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'),
     },
