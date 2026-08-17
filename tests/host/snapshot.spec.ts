@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { snapshotMission } from '../../src/host/snapshot.ts'
+import { DEEPSEEK_PRICING } from '../../src/pricing.ts'
 
 interface FakeSession {
   readonly id: string
@@ -23,12 +24,18 @@ function session(
 
 describe('snapshotMission', () => {
   it('includes only the root and its Session-backed subagent descendants', () => {
-    const root = session('root', 10)
+    const root = session(
+      'root',
+      10,
+      {},
+      usageEvents('deepseek-official', 'deepseek-v4-flash'),
+    )
     const child = session(
       'child',
       20,
       { parentSession: 'root', origin: 'subagent' },
       [
+        ...usageEvents('deepseek-official', 'deepseek-v4-pro'),
         {
           type: 'tool/call',
           time: 30,
@@ -36,17 +43,19 @@ describe('snapshotMission', () => {
         },
       ],
     )
-    const grandchild = session('grandchild', 40, {
-      parentSession: 'child',
-      origin: 'subagent',
-    })
+    const unknown = session(
+      'unknown',
+      40,
+      { parentSession: 'child', origin: 'subagent' },
+      usageEvents('gateway', 'deepseek-v4-pro'),
+    )
     const ordinaryFork = session('fork', 50, { parentSession: 'root' })
     const unrelated = session('other', 60)
-    const all = [root, child, grandchild, ordinaryFork, unrelated]
+    const all = [root, child, unknown, ordinaryFork, unrelated]
     const projections = new Map<string, Record<string, unknown>>([
       ['root', { title: { title: 'Root task' }, tokenUsage: tokens(4) }],
       ['child', { subagent: { mode: 'one-shot', label: 'Research', seq: 0 }, tokenUsage: tokens(3) }],
-      ['grandchild', { title: { title: 'Deep scan' }, tokenUsage: tokens(2) }],
+      ['unknown', { title: { title: 'Deep scan' }, tokenUsage: tokens(2) }],
       ['fork', { tokenUsage: tokens(100) }],
       ['other', { tokenUsage: tokens(100) }],
     ])
@@ -67,7 +76,7 @@ describe('snapshotMission', () => {
     expect(snapshot.agents.map(agent => agent.id)).toEqual([
       'root',
       'child',
-      'grandchild',
+      'unknown',
     ])
     expect(snapshot.agents.map(agent => agent.label)).toEqual([
       'Root task',
@@ -85,6 +94,21 @@ describe('snapshotMission', () => {
       },
     ])
     expect(snapshot.totals).toEqual(tokens(9))
+    expect(snapshot.agents.find(agent => agent.id === 'root')?.cost).toMatchObject({
+      pricedSteps: 1,
+      unpricedSteps: 0,
+    })
+    expect(snapshot.agents.find(agent => agent.id === 'child')?.cost).toMatchObject({
+      pricedSteps: 1,
+      unpricedSteps: 0,
+    })
+    expect(snapshot.agents.find(agent => agent.id === 'unknown')?.cost).toMatchObject({
+      pricedSteps: 0,
+      unpricedSteps: 1,
+    })
+    expect(snapshot.cost.pricedSteps).toBe(2)
+    expect(snapshot.cost.unpricedSteps).toBe(1)
+    expect(snapshot.pricing).toEqual(DEEPSEEK_PRICING.metadata)
   })
 
   it('fails loudly when the root is not live', () => {
@@ -112,6 +136,27 @@ function tokens(value: number) {
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
   }
+}
+
+function usageEvents(provider: string, model: string): readonly unknown[] {
+  return [
+    { type: 'step/start', data: { turn: 1, step: 1 }, time: 1 },
+    {
+      type: 'request/header',
+      data: { header: { config: { provider, model } }, reason: 'initial' },
+      time: 2,
+    },
+    {
+      type: 'assistant/message',
+      data: {
+        turn: 1,
+        step: 1,
+        message: { role: 'assistant', content: [] },
+        usage: { inputTokens: 1_000, outputTokens: 1_000 },
+      },
+      time: 3,
+    },
+  ]
 }
 
 function emptyServices() {

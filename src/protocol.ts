@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+import type { CostEstimate } from './host/cost.ts'
+import type { PricingMetadata } from './pricing.ts'
+
 /** Authoritative token buckets exposed by the Harness token projection. */
 export interface TokenBuckets {
   readonly uncachedInputTokens: number
@@ -28,6 +31,7 @@ export interface AgentView {
   readonly startedAt: number
   readonly status: AgentPresentationStatus
   readonly tokens: TokenBuckets
+  readonly cost: CostEstimate
 }
 
 /** One visible Tool call owned by a Session in the topology. */
@@ -49,6 +53,8 @@ export interface MissionSnapshot {
   readonly agents: readonly AgentView[]
   readonly tools: readonly ToolView[]
   readonly totals: TokenBuckets
+  readonly cost: CostEstimate
+  readonly pricing: PricingMetadata
   readonly diagnostics: number
 }
 
@@ -74,6 +80,8 @@ export type MissionFrame =
       readonly type: 'token/update'
       readonly tokens: TokenBuckets
       readonly totals: TokenBuckets
+      readonly cost: CostEstimate
+      readonly totalCost: CostEstimate
     })
   | (FrameEnvelope & {
       readonly type: 'diagnostic'
@@ -102,6 +110,41 @@ const tokenBucketsSchema = z.strictObject({
   cacheWriteTokens: nonNegativeInteger,
 })
 
+const modelPriceSchema = z.strictObject({
+  provider: z.literal('deepseek-official'),
+  model: z.enum(['deepseek-v4-flash', 'deepseek-v4-pro']),
+  cacheHitUsdPerMillion: z.number().finite().nonnegative(),
+  cacheMissUsdPerMillion: z.number().finite().nonnegative(),
+  outputUsdPerMillion: z.number().finite().nonnegative(),
+  cacheWriteUsdPerMillion: z.literal(0),
+})
+
+const costBreakdownSchema = z.strictObject({
+  provider: identifier,
+  model: identifier,
+  price: modelPriceSchema,
+  tokens: tokenBucketsSchema,
+  usd: z.number().finite().nonnegative(),
+  cny: z.number().finite().nonnegative(),
+})
+
+const costEstimateSchema = z.strictObject({
+  usd: z.number().finite().nonnegative(),
+  cny: z.number().finite().nonnegative(),
+  pricedSteps: nonNegativeInteger,
+  unpricedSteps: nonNegativeInteger,
+  breakdown: z.array(costBreakdownSchema),
+})
+
+const pricingMetadataSchema = z.strictObject({
+  revision: z.literal('deepseek-2026-08-17'),
+  priceCheckedAt: z.literal('2026-08-17'),
+  priceSource: z.literal('https://api-docs.deepseek.com/quick_start/pricing'),
+  usdToCny: z.literal(6.7894),
+  fxEffectiveAt: z.literal('2026-07-31'),
+  fxSource: z.literal('https://fec.mofcom.gov.cn/article/zyfw/jrfw/jrfwywzn/jrfwwh/hlfxglzy/202607/7208.html'),
+})
+
 const agentStatusSchema = z.enum([
   'idle',
   'responding',
@@ -121,6 +164,7 @@ const agentViewSchema = z.strictObject({
   startedAt: nonNegativeTimestamp,
   status: agentStatusSchema,
   tokens: tokenBucketsSchema,
+  cost: costEstimateSchema,
 })
 
 const toolViewSchema = z.strictObject({
@@ -140,6 +184,8 @@ const missionSnapshotSchema = z.strictObject({
   agents: z.array(agentViewSchema),
   tools: z.array(toolViewSchema),
   totals: tokenBucketsSchema,
+  cost: costEstimateSchema,
+  pricing: pricingMetadataSchema,
   diagnostics: nonNegativeInteger,
 })
 
@@ -186,6 +232,8 @@ const missionMessageSchema: z.ZodType<MissionMessage> = z.discriminatedUnion(
       ...frameEnvelope,
       tokens: tokenBucketsSchema,
       totals: tokenBucketsSchema,
+      cost: costEstimateSchema,
+      totalCost: costEstimateSchema,
     }),
     z.strictObject({
       type: z.literal('diagnostic'),

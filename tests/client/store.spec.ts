@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { MissionMessage, MissionSnapshot } from '../../src/protocol.ts'
+import { DEEPSEEK_PRICING } from '../../src/pricing.ts'
 import { MissionControlController } from '../../src/client/controller.ts'
 import { MissionStore } from '../../src/client/store.ts'
 
@@ -37,6 +38,8 @@ describe('MissionStore', () => {
       agents: [agent('root', 3), agent('child', 7, 'root')],
       tools: [tool('root', 'a'), tool('child', 'b')],
       totals: tokens(10),
+      cost: zeroCost(),
+      pricing: DEEPSEEK_PRICING.metadata,
       diagnostics: 0,
     }))
 
@@ -92,6 +95,8 @@ function mission(rootId: string): MissionSnapshot {
     agents: [agent(rootId, 0)],
     tools: [],
     totals: tokens(0),
+    cost: zeroCost(),
+    pricing: DEEPSEEK_PRICING.metadata,
     diagnostics: 0,
   }
 }
@@ -137,6 +142,8 @@ function tokenUpdate(
     timestamp,
     tokens: tokens(total),
     totals: tokens(total),
+    cost: zeroCost(),
+    totalCost: zeroCost(),
   }
 }
 
@@ -149,6 +156,7 @@ function agent(id: string, value: number, parentId?: string) {
     startedAt: 0,
     status: 'idle' as const,
     tokens: tokens(value),
+    cost: zeroCost(),
   }
 }
 
@@ -170,4 +178,8 @@ function tokens(value: number) {
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
   }
+}
+
+function zeroCost() {
+  return { usd: 0, cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
 }

@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { describe, expect, it } from 'vitest'
 
 import type { MissionMessage } from '../../src/protocol.ts'
+import { DEEPSEEK_PRICING } from '../../src/pricing.ts'
 import type {
   MissionSink,
   MissionSubscription,
@@ -183,6 +184,8 @@ function snapshot(rootId: string, generation: number): MissionMessage {
       agents: [],
       tools: [],
       totals: tokens(0),
+      cost: zeroCost(),
+      pricing: DEEPSEEK_PRICING.metadata,
       diagnostics: 0,
     },
   }
@@ -208,4 +211,8 @@ function tokens(value: number) {
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
   }
+}
+
+function zeroCost() {
+  return { usd: 0, cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
 }

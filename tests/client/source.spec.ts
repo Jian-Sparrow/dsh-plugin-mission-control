@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { MissionMessage } from '../../src/protocol.ts'
+import { DEEPSEEK_PRICING } from '../../src/pricing.ts'
 import { MissionSource, type EventSourceLike } from '../../src/client/source.ts'
 import { MissionStore } from '../../src/client/store.ts'
 
@@ -84,9 +85,12 @@ function snapshot(subscriptionId: string, generation: number, diagnostics: numbe
         startedAt: 0,
         status: 'idle',
         tokens: tokens(0),
+        cost: zeroCost(),
       }],
       tools: [],
       totals: tokens(0),
+      cost: zeroCost(),
+      pricing: DEEPSEEK_PRICING.metadata,
       diagnostics,
     },
   }
@@ -123,4 +127,8 @@ function tokens(value: number) {
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
   }
+}
+
+function zeroCost() {
+  return { usd: 0, cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
 }

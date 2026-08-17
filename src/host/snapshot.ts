@@ -5,6 +5,13 @@ import type {
   TokenBuckets,
   ToolView,
 } from '../protocol.ts'
+import { DEEPSEEK_PRICING } from '../pricing.ts'
+import {
+  addCostEstimates,
+  createCostTracker,
+  estimateCost,
+  type CostEstimate,
+} from './cost.ts'
 import {
   emptyToolState,
   finishTool,
@@ -112,6 +119,7 @@ export function snapshotMission(
   const included = sessions.filter(session => isDescendantOf(rootId, session, byId))
   const agents: AgentView[] = []
   const tools: ToolView[] = []
+  const costs: CostEstimate[] = []
   let totals = ZERO_TOKENS
 
   for (const session of included) {
@@ -121,6 +129,7 @@ export function snapshotMission(
       throw new Error('Mission Control requires the tokenUsage projection')
     }
     const agent = services.agents.get(session.id)
+    const cost = estimateCost(createCostTracker(session.events))
     agents.push({
       id: session.id,
       ...(session.id === rootId
@@ -131,12 +140,22 @@ export function snapshotMission(
       startedAt: session.header.createdAt,
       status: initialStatus(agent),
       tokens,
+      cost,
     })
+    costs.push(cost)
     tools.push(...openToolsOf(session))
     totals = addTokens(totals, tokens)
   }
 
-  return { rootId, agents, tools, totals, diagnostics: 0 }
+  return {
+    rootId,
+    agents,
+    tools,
+    totals,
+    cost: addCostEstimates(costs),
+    pricing: DEEPSEEK_PRICING.metadata,
+    diagnostics: 0,
+  }
 }
 
 function initialStatus(

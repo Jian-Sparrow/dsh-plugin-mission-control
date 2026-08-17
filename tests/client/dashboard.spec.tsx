@@ -6,6 +6,7 @@ import { MissionControlController } from '../../src/client/controller.ts'
 import { MissionDashboard } from '../../src/client/components/MissionDashboard.tsx'
 import { MissionStore } from '../../src/client/store.ts'
 import type { MissionSnapshot } from '../../src/protocol.ts'
+import { DEEPSEEK_PRICING } from '../../src/pricing.ts'
 
 const snapshot: MissionSnapshot = {
   rootId: 'root',
@@ -25,6 +26,8 @@ const snapshot: MissionSnapshot = {
     },
   ],
   totals: { uncachedInputTokens: 10, outputTokens: 5, cacheReadTokens: 3, cacheWriteTokens: 2 },
+  cost: zeroCost(),
+  pricing: DEEPSEEK_PRICING.metadata,
   diagnostics: 1,
 }
 
@@ -161,5 +164,10 @@ function agent(
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
     },
+    cost: zeroCost(),
   }
+}
+
+function zeroCost() {
+  return { usd: 0, cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
 }
