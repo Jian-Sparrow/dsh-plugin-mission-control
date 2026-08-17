@@ -57,6 +57,9 @@ describe('Mission Control browser registration', () => {
       id: 'mission-control-sidebar', component: MissionSidebarAction,
     })
     expect(entries.has('shell.overlay')).toBe(false)
+    const styles = document.getElementById('dsh-mission-control-styles')?.textContent ?? ''
+    expect(styles).toContain('.mc-panel--fullscreen{')
+    expect(styles).toContain('.mc-dashboard__content--fullscreen{display:grid;grid-template-columns:')
 
     for (const dispose of disposers.reverse()) dispose()
     expect(entries.size).toBe(0)

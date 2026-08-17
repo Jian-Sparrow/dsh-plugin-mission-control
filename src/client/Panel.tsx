@@ -93,6 +93,7 @@ function LiveMission({
         controller={controller}
         sessionTitle={useSessions(state => state.byId[sessionId as keyof typeof state.byId]?.displayTitle ?? sessionId)}
         previewMode={settings.previewMode}
+        presentation={presentation}
         t={t}
       />
     </PanelFrame>,

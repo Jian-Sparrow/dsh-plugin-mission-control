@@ -35,6 +35,16 @@ const snapshot: MissionSnapshot = {
 afterEach(cleanup)
 
 describe('MissionDashboard', () => {
+  it('shows Agent topology and Tool stream together in full-screen mode', () => {
+    const { props } = bench('full')
+    const view = render(<MissionDashboard {...props} presentation="fullscreen" />)
+
+    expect(view.getByLabelText('Agent topology')).toBeTruthy()
+    expect(view.getAllByTestId('agent-edge')).toHaveLength(2)
+    expect(view.getByRole('log', { name: 'Live tool stream' })).toBeTruthy()
+    expect(view.queryByRole('tablist')).toBeNull()
+  })
+
   it('starts on Agents, switches to Tools, and preserves Agent filtering', () => {
     const { store, controller, props } = bench()
     const view = render(<MissionDashboard {...props} />)
@@ -153,6 +163,7 @@ function bench(
     controller,
     sessionTitle: 'Current mission',
     previewMode,
+    presentation: 'inline',
     now: () => 2_000,
     t: translate,
   } as ComponentProps<typeof MissionDashboard>
