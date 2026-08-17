@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MissionHeaderAction, MissionSidebarAction } from '../../src/client/Action.tsx'
 import { MissionControlController } from '../../src/client/controller.ts'
 import { apply, inject } from '../../src/client/index.ts'
-import { MissionControlOverlay } from '../../src/client/Overlay.tsx'
 
 afterEach(() => {
   cleanup()
@@ -20,7 +19,7 @@ const t = (key: string) => ({
 }[key] ?? key)
 
 describe('Mission Control browser registration', () => {
-  it('contributes and disposes all three DSH Web surfaces', () => {
+  it('contributes and disposes the two supported rc.7 surfaces', () => {
     const entries = new Map<string, { id: string | undefined; component: unknown }>()
     const disposers: Array<() => void> = []
     const ctx = {
@@ -31,6 +30,7 @@ describe('Mission Control browser registration', () => {
         return () => {}
       },
       locale: { register: () => () => {} },
+      layout: { toggleSidebar: vi.fn() },
       slots: {
         inject: (_name: string, setup: () => () => void) => {
           disposers.push(setup())
@@ -47,29 +47,33 @@ describe('Mission Control browser registration', () => {
     }
 
     apply(ctx as never)
-    expect(inject).toEqual(['sessions', 'slots', 'locale'])
+    expect(inject).toEqual(['sessions', 'slots', 'locale', 'layout'])
     expect(entries.get('conversation.session.header.actions')).toEqual({
       id: 'mission-control-header', component: MissionHeaderAction,
     })
     expect(entries.get('sidebar.footer.action')).toEqual({
       id: 'mission-control-sidebar', component: MissionSidebarAction,
     })
-    expect(entries.get('shell.overlay')).toEqual({
-      id: 'mission-control-overlay', component: MissionControlOverlay,
-    })
+    expect(entries.has('shell.overlay')).toBe(false)
 
     for (const dispose of disposers.reverse()) dispose()
     expect(entries.size).toBe(0)
   })
 
-  it('opens the bound Session, streams once, closes, and disables without a current Session', () => {
-    const controller = new MissionControlController()
-    const created = vi.fn(() => ({
+  it('portals below the Session list, follows the current Session, and cleans up', async () => {
+    const toggleSidebar = vi.fn()
+    const controller = new MissionControlController(toggleSidebar)
+    const sources: Array<{ close: ReturnType<typeof vi.fn> }> = []
+    const created = vi.fn((_url: string) => {
+      const source = {
       onmessage: null,
       onerror: null,
       onopen: null,
       close: vi.fn(),
-    }))
+      }
+      sources.push(source)
+      return source
+    })
     let current: string | undefined = 'mission-session'
     const useSessions = <Selected,>(selector: (value: {
       current?: string
@@ -79,37 +83,56 @@ describe('Mission Control browser registration', () => {
       byId: { 'mission-session': { displayTitle: 'Mission' } },
     })
 
-    const headerProps = {
-      controller,
-      sessionId: 'mission-session',
-      t,
-      useSessions,
-    } as unknown as ComponentProps<typeof MissionHeaderAction>
-    const header = render(<MissionHeaderAction {...headerProps} />)
-    fireEvent.click(header.getByRole('button', { name: 'Open Mission Control' }))
-
-    const overlayProps = {
+    const sidebarProps = {
       controller,
       createSource: created,
       settings: { previewMode: 'names-only', maxLiveRows: 20, velocityWindowMs: 5_000 },
       useSessions,
-      t,
-    } as unknown as ComponentProps<typeof MissionControlOverlay>
-    const overlay = render(<MissionControlOverlay {...overlayProps} />)
-    expect(overlay.getByRole('dialog', { name: 'Mission Control' })).toBeTruthy()
-    expect(created).toHaveBeenCalledOnce()
-    fireEvent.click(overlay.getByRole('button', { name: 'Close Mission Control' }))
-    expect(overlay.queryByRole('dialog')).toBeNull()
-
-    current = undefined
-    const sidebarProps = {
-      controller,
-      useSessions,
-      wide: true,
+      wide: false,
       t,
     } as unknown as ComponentProps<typeof MissionSidebarAction>
-    const sidebar = render(<MissionSidebarAction {...sidebarProps} />)
-    expect(sidebar.container.querySelector('button')?.hasAttribute('disabled'))
-      .toBe(true)
+    const fixture = createSidebar()
+    const sidebar = render(<MissionSidebarAction {...sidebarProps} />, {
+      container: fixture.outlet,
+    })
+    expect(fixture.root.children[1]?.hasAttribute('data-mission-control-panel-host')).toBe(true)
+
+    fireEvent.click(sidebar.getByRole('button', { name: 'Open Mission Control' }))
+    expect(toggleSidebar).toHaveBeenCalledOnce()
+    expect(document.querySelector('[role="region"][aria-label="Mission Control"]')).toBeNull()
+
+    sidebar.rerender(<MissionSidebarAction {...sidebarProps} wide />)
+    expect(document.querySelector('[role="region"][aria-label="Mission Control"]')).toBeTruthy()
+    expect(created).toHaveBeenCalledOnce()
+
+    current = 'next-session'
+    await act(async () => {
+      sidebar.rerender(<MissionSidebarAction {...sidebarProps} wide />)
+    })
+    expect(sources[0]?.close).toHaveBeenCalledOnce()
+    expect(created).toHaveBeenCalledTimes(2)
+    expect(created.mock.calls[1]?.[0]).toContain('sessionId=next-session')
+
+    sidebar.rerender(<MissionSidebarAction {...sidebarProps} wide={false} />)
+    expect(document.querySelector('[role="region"][aria-label="Mission Control"]')).toBeNull()
+    expect(sources[1]?.close).toHaveBeenCalledOnce()
+
+    sidebar.unmount()
+    expect(document.querySelector('[data-mission-control-panel-host]')).toBeNull()
   })
 })
+
+function createSidebar() {
+  const root = document.createElement('aside')
+  const browsing = document.createElement('div')
+  const footer = document.createElement('div')
+  const footerActions = document.createElement('div')
+  const outlet = document.createElement('div')
+  outlet.dataset.slot = 'sidebar.footer.action'
+  const settings = document.createElement('div')
+  footerActions.append(outlet)
+  footer.append(footerActions, settings)
+  root.append(browsing, footer)
+  document.body.append(root)
+  return { root, outlet }
+}

@@ -7,7 +7,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import { MissionHeaderAction, MissionSidebarAction } from './Action.tsx'
 import { MissionControlController } from './controller.ts'
 import { en, NS, zh, type MissionControlKey } from './locales.ts'
-import { MissionControlOverlay } from './Overlay.tsx'
 import { installStyles } from './styles.ts'
 import { resolveConfig, type Config } from '../config.ts'
 
@@ -24,11 +23,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Browser services required by the plugin. */
-export const inject = ['sessions', 'slots', 'locale']
+export const inject = ['sessions', 'slots', 'locale', 'layout']
 
-/** Register global and Session actions plus the persistent full-screen overlay. */
+/** Register the Session header and rc.7 sidebar footer actions. */
 export function apply(ctx: ClientContext, config: Config = {}): void {
-  const controller = new MissionControlController()
+  const controller = new MissionControlController(() => { ctx.layout.toggleSidebar() })
   const settings = resolveConfig(config)
   ctx.provide('missionControl', controller)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mission-control: browser dictionaries')
@@ -45,15 +44,8 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
     id: 'mission-control-sidebar',
     order: 30,
     locale: NS,
-    inject: () => ({ controller }),
-  }, MissionSidebarAction))
-  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-    name: 'shell.overlay',
-    id: 'mission-control-overlay',
-    order: 30,
-    locale: NS,
     inject: () => ({ controller, settings }),
-  }, MissionControlOverlay))
+  }, MissionSidebarAction))
 }
 
 export { parseMissionMessage } from '../protocol.ts'
@@ -61,4 +53,4 @@ export * from './store.ts'
 export * from './source.ts'
 export * from './controller.ts'
 export * from './Action.tsx'
-export * from './Overlay.tsx'
+export * from './Panel.tsx'

@@ -1,21 +1,21 @@
 # DeepSeek Harness Mission Control
 
-面向当前 DeepSeek Harness Session 的实时可观测插件。Mission Control 将 Agent 状态、Tool 调用、进程内子代理协作和权威 Token 计数，呈现为 DSH Web 内置的全屏控制面板。
+面向当前 DeepSeek Harness Session 的实时可观测插件。Mission Control 将 Agent 状态、Tool 调用、进程内子代理协作和权威 Token 计数，呈现为 DSH Web 会话列表下方的紧凑面板。
 
 [English](./README.md)
 
 ## 能看到什么
 
 - 全局 HUD：连接状态、总 Token、四类 Token、近期 Token 速度、人民币预估费用、Agent 数、运行中 Tool 数和诊断数。
-- 以当前 Session 为根的可选择 Agent 拓扑。选择某个 Agent 后，Token 汇总和 Tool 流都会随之过滤。
+- 以当前 Session 为根的可选择 Agent 树。选择某个 Agent 后，Token 汇总和 Tool 流都会随之过滤。
 - Tool 实时流：归属 Agent、耗时、结果状态、有限行数和可选载荷预览。
 - 两个原生入口：当前 Session 顶部和 DSH Web 侧边栏底部。
 
-Mission Control **只做实时直播**。进入页面时只打开一条同源 SSE 订阅；重连期间保留最后一次快照；关闭页面、切换 Session、卸载插件或浏览器断开时释放订阅。它不会向模型上下文增加 Tool、提示词或隐藏思考内容。
+Mission Control **只做实时直播**。面板可见时只打开一条同源 SSE 订阅，并跟随全局当前 Session；重连期间保留最后一次快照；关闭面板、收起侧栏、切换目标 Session、卸载插件或浏览器断开时释放旧订阅。它不会向模型上下文增加 Tool、提示词或隐藏思考内容。
 
 ## 环境要求
 
-- DeepSeek Harness `0.1.0-rc.6`
+- DeepSeek Harness `0.1.0-rc.7`
 - DSH Web profile
 - Node.js `^22.19.0` 或 `>=24.0.0`
 - 通过 Corepack 使用 pnpm
@@ -46,7 +46,9 @@ dsh --profile web
 
 ## 使用
 
-在 DSH Web 中启动或打开一个 Session，然后点击 Session 顶部的 **Mission Control**，或使用侧边栏“设置”旁的 **◎ Mission Control**。没有选中 Session 时，侧边栏入口会禁用。关闭面板后，焦点会回到原入口；切换 Session 会关闭旧面板，也不会自动为新 Session 打开订阅。
+在 DSH Web 中启动或打开一个 Session，然后点击 Session 顶部的 **Mission Control**，或使用侧边栏“设置”旁的 **◎ Mission Control**。没有选中 Session 时，侧边栏入口会禁用。侧栏收起时会通过 Harness 现有的 toggle action 展开；会话列表继续保留在面板上方，可滚动、可切换。切换当前 Session 会让实时流重新定向，不关闭面板；关闭面板后焦点会回到原入口。
+
+0.2.x 版本明确适配 Harness rc.7 的侧栏 DOM，并以受支持的 `sidebar.footer.action` 插槽作为生命周期锚点。插件会在 footer 前插入一个自有宿主，再通过 React Portal 渲染；不需要 `openSidebar()`、`sidebar.auxiliary` 或修改 Harness 源码。未来 Harness 若调整侧栏结构，需要同步更新插件；结构不匹配时会抛出具名集成错误，不会静默挂到错误区域。
 
 HUD 中的 Token 来自 Harness token-meter 投影：
 

@@ -1,9 +1,9 @@
-/** Closed or open overlay identity exposed through an observable store. */
+/** Closed or open panel identity exposed through an observable store. */
 export type ControllerSnapshot =
   | { readonly open: false }
   | {
       readonly open: true
-      readonly sessionId: string
+      readonly sessionId?: string
       readonly generation: number
     }
 
@@ -12,7 +12,13 @@ export class MissionControlController {
   private readonly listeners = new Set<() => void>()
   private generation = 0
   private returnFocus: HTMLElement | undefined
+  private sidebarWide: boolean | undefined
   private state: ControllerSnapshot = { open: false }
+
+  /**
+   * @param toggleSidebar Existing Harness layout action used to reveal a collapsed rail.
+   */
+  constructor(private readonly toggleSidebar: () => void = () => {}) {}
 
   /** @returns the current overlay state. */
   getSnapshot(): ControllerSnapshot {
@@ -37,6 +43,45 @@ export class MissionControlController {
     this.returnFocus = returnFocus
     this.state = { open: true, sessionId, generation: ++this.generation }
     this.notify()
+  }
+
+  /**
+   * Toggle the panel for a Session, or retarget an already open panel.
+   * @param sessionId Current Harness Session id.
+   * @param returnFocus Element restored after the panel closes.
+   */
+  toggle(sessionId: string | undefined, returnFocus?: HTMLElement): void {
+    if (this.state.open && this.state.sessionId === sessionId) {
+      this.close()
+      return
+    }
+    if (returnFocus !== undefined) this.returnFocus = returnFocus
+    this.state = sessionId === undefined
+      ? { open: true, generation: ++this.generation }
+      : { open: true, sessionId, generation: ++this.generation }
+    this.notify()
+  }
+
+  /**
+   * Follow a new globally selected Session while preserving the launch focus target.
+   * @param sessionId Newly selected Harness Session id, if any.
+   */
+  retarget(sessionId: string | undefined): void {
+    if (!this.state.open || this.state.sessionId === sessionId) return
+    this.state = sessionId === undefined
+      ? { open: true, generation: ++this.generation }
+      : { open: true, sessionId, generation: ++this.generation }
+    this.notify()
+  }
+
+  /** @param wide Whether the Harness sidebar currently shows its wide form. */
+  reportSidebarWide(wide: boolean): void {
+    this.sidebarWide = wide
+  }
+
+  /** Reveal the sidebar through its existing toggle action only when it is collapsed. */
+  revealSidebar(): void {
+    if (this.sidebarWide === false) this.toggleSidebar()
   }
 
   /** Close the overlay without resetting its generation counter. */

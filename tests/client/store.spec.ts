@@ -104,6 +104,30 @@ describe('MissionControlController', () => {
     expect(notifications).toBe(3)
     unsubscribe()
   })
+
+  it('reveals only a collapsed sidebar and toggles or retargets the live panel', () => {
+    let toggles = 0
+    const controller = new MissionControlController(() => { toggles += 1 })
+
+    controller.reportSidebarWide(false)
+    controller.revealSidebar()
+    expect(toggles).toBe(1)
+
+    controller.reportSidebarWide(true)
+    controller.revealSidebar()
+    expect(toggles).toBe(1)
+
+    controller.toggle('root')
+    expect(controller.getSnapshot()).toEqual({
+      open: true, sessionId: 'root', generation: 1,
+    })
+    controller.retarget('child')
+    expect(controller.getSnapshot()).toEqual({
+      open: true, sessionId: 'child', generation: 2,
+    })
+    controller.toggle('child')
+    expect(controller.getSnapshot()).toEqual({ open: false })
+  })
 })
 
 function mission(rootId: string): MissionSnapshot {

@@ -1,21 +1,21 @@
 # Mission Control for DeepSeek Harness
 
-Live observability for the current DeepSeek Harness Session. Mission Control turns Agent activity, Tool calls, in-process subagent collaboration, and authoritative token counters into a full-screen dashboard inside DSH Web.
+Live observability for the current DeepSeek Harness Session. Mission Control turns Agent activity, Tool calls, in-process subagent collaboration, and authoritative token counters into a compact panel below the DSH Web Session list.
 
 [中文说明](./README.zh.md)
 
 ## What it shows
 
 - A global HUD with connection state, total tokens, four token buckets, recent token velocity, estimated CNY cost, Agent count, running Tool count, and diagnostics.
-- A selectable Agent topology rooted at the current Session. Selecting an Agent filters token totals and Tool rows.
+- A selectable Agent tree rooted at the current Session. Selecting an Agent filters token totals and Tool rows.
 - A live Tool stream with ownership, timing, result state, bounded rows, and optional payload previews.
 - Two native entry points: the current Session header and the DSH Web sidebar footer.
 
-Mission Control is live-only. It opens one same-origin SSE subscription when you enter the page, freezes the last snapshot while reconnecting, and releases the subscription on close, Session change, plugin unload, or browser disconnect. It does not add model tools, prompts, or hidden reasoning to the model context.
+Mission Control is live-only. It opens one same-origin SSE subscription while the panel is visible, follows the globally current Session, freezes the last snapshot while reconnecting, and releases the subscription on close, sidebar collapse, Session retarget, plugin unload, or browser disconnect. It does not add model tools, prompts, or hidden reasoning to the model context.
 
 ## Requirements
 
-- DeepSeek Harness `0.1.0-rc.6`
+- DeepSeek Harness `0.1.0-rc.7`
 - The DSH Web profile
 - Node.js `^22.19.0` or `>=24.0.0`
 - pnpm through Corepack
@@ -46,7 +46,9 @@ To change settings, override the complete `mission-control` row in the profile o
 
 ## Use
 
-Start or open a Session in DSH Web. Choose **Mission Control** in the Session header, or use the **◎ Mission Control** action beside Settings in the sidebar. The sidebar action is disabled when no Session is selected. Closing the dashboard returns focus to the launch button. Changing the selected Session closes the old dashboard and does not open the new Session automatically.
+Start or open a Session in DSH Web. Choose **Mission Control** in the Session header, or use the **◎ Mission Control** action beside Settings in the sidebar. The sidebar action is disabled when no Session is selected. A collapsed sidebar expands through Harness's existing toggle action; the Session list remains mounted, scrollable, and selectable above the panel. Changing the selected Session retargets the live stream without closing the panel. Closing the panel returns focus to the launch button.
+
+Version 0.2.x intentionally adapts to the Harness rc.7 sidebar DOM rooted at the supported `sidebar.footer.action` slot. It inserts one plugin-owned host immediately before the footer and renders through React Portal; it does not require `openSidebar()`, `sidebar.auxiliary`, or a Harness source patch. A future Harness sidebar markup change may require a corresponding plugin update and fails with a named integration error instead of silently mounting in the wrong place.
 
 The HUD token fields come from the Harness token-meter projection:
 
