@@ -7,6 +7,7 @@ import { MissionDashboard } from '../../src/client/components/MissionDashboard.t
 import { MissionStore } from '../../src/client/store.ts'
 import type { MissionSnapshot } from '../../src/protocol.ts'
 import { DEEPSEEK_PRICING } from '../../src/pricing.ts'
+import type { CostBreakdown, CostEstimate } from '../../src/host/cost.ts'
 
 const snapshot: MissionSnapshot = {
   rootId: 'root',
@@ -87,11 +88,57 @@ describe('MissionDashboard', () => {
     expect(view.getByRole('status').textContent).toContain('Full tool payloads are visible')
     expect(within(view.getByRole('log')).getByText('{"query":"mission control"}')).toBeTruthy()
   })
+
+  it('renders a complete CNY estimate with source details', () => {
+    const complete: CostEstimate = {
+      ...zeroCost(),
+      usd: 0.14,
+      cny: 0.950516,
+      pricedSteps: 1,
+      breakdown: [flashBreakdown],
+    }
+    const { props } = bench('full', { ...snapshot, cost: complete })
+    const view = render(<MissionDashboard {...props} />)
+
+    expect(view.getByText('≈ ¥0.950516')).toBeTruthy()
+    expect(view.getByText('Estimate only, not an actual bill')).toBeTruthy()
+    expect(view.getByText('$0.140000')).toBeTruthy()
+    expect(view.getByText(/1 USD = 6.7894 CNY/)).toBeTruthy()
+    expect(view.getByText(/2026-08-17/)).toBeTruthy()
+    expect(view.getByText(/2026-07-31/)).toBeTruthy()
+  })
+
+  it('labels a partial estimate and reports excluded model steps', () => {
+    const partial: CostEstimate = {
+      ...zeroCost(),
+      usd: 0.14,
+      cny: 0.950516,
+      pricedSteps: 1,
+      unpricedSteps: 2,
+      breakdown: [flashBreakdown],
+    }
+    const { props } = bench('full', { ...snapshot, cost: partial })
+    const view = render(<MissionDashboard {...props} />)
+
+    expect(view.getByText('Partial estimate')).toBeTruthy()
+    expect(view.getByText('2 model steps excluded')).toBeTruthy()
+  })
+
+  it('shows no price when every observed model step is unpriced', () => {
+    const unavailable: CostEstimate = { ...zeroCost(), unpricedSteps: 1 }
+    const { props } = bench('full', { ...snapshot, cost: unavailable })
+    const view = render(<MissionDashboard {...props} />)
+
+    expect(view.getByText('No price')).toBeTruthy()
+  })
 })
 
-function bench(previewMode: 'names-only' | 'redacted' | 'full' = 'full') {
+function bench(
+  previewMode: 'names-only' | 'redacted' | 'full' = 'full',
+  mission: MissionSnapshot = snapshot,
+) {
   const store = new MissionStore({ generation: 1, maxLiveRows: 20, velocityWindowMs: 5_000 })
-  store.receive({ type: 'snapshot', subscriptionId: 'sub', generation: 1, snapshot })
+  store.receive({ type: 'snapshot', subscriptionId: 'sub', generation: 1, snapshot: mission })
   store.setConnection('reconnecting')
   const controller = new MissionControlController()
   controller.open('root')
@@ -117,6 +164,18 @@ function translate(key: string, params?: Record<string, unknown>): string {
     'hud.cacheRead': 'Cache read',
     'hud.cacheWrite': 'Cache write',
     'hud.rate': 'Recent tokens',
+    'hud.estimatedCost': 'Estimated cost',
+    'hud.estimate': 'Estimate',
+    'hud.partialEstimate': 'Partial estimate',
+    'hud.noPrice': 'No price',
+    'hud.costDetails': 'Cost estimate details',
+    'hud.notBill': 'Estimate only, not an actual bill',
+    'hud.usdSubtotal': 'USD subtotal',
+    'hud.exchangeRate': 'Reference rate: 1 USD = {rate} CNY',
+    'hud.priceCheckedAt': 'Prices checked {date}',
+    'hud.fxEffectiveAt': 'Reference rate effective {date}',
+    'hud.unpricedSteps': '{count} model steps excluded',
+    'hud.modelPrice': '{model} unit prices',
     'hud.agent': '{count} agent',
     'hud.agents': '{count} agents',
     'hud.runningTool': '{count} running tool',
@@ -170,4 +229,25 @@ function agent(
 
 function zeroCost() {
   return { usd: 0, cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
+}
+
+const flashBreakdown: CostBreakdown = {
+  provider: 'deepseek-official',
+  model: 'deepseek-v4-flash',
+  price: {
+    provider: 'deepseek-official',
+    model: 'deepseek-v4-flash',
+    cacheHitUsdPerMillion: 0.0028,
+    cacheMissUsdPerMillion: 0.14,
+    outputUsdPerMillion: 0.28,
+    cacheWriteUsdPerMillion: 0,
+  },
+  tokens: {
+    uncachedInputTokens: 1_000_000,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  },
+  usd: 0.14,
+  cny: 0.950516,
 }

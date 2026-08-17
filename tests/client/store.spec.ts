@@ -32,23 +32,40 @@ describe('MissionStore', () => {
   })
 
   it('filters Tool rows and totals to the selected Agent', () => {
+    const rootCost = cost(0.14, 0.95, 1)
+    const childCost = cost(0.07, 0.5, 1)
+    const totalCost = cost(0.21, 1.45, 2)
     const store = new MissionStore({ generation: 1, maxLiveRows: 10, velocityWindowMs: 5_000 })
     store.receive(snapshotMessage('s1', 1, {
       rootId: 'root',
-      agents: [agent('root', 3), agent('child', 7, 'root')],
+      agents: [agent('root', 3, undefined, rootCost), agent('child', 7, 'root', childCost)],
       tools: [tool('root', 'a'), tool('child', 'b')],
       totals: tokens(10),
-      cost: zeroCost(),
+      cost: totalCost,
       pricing: DEEPSEEK_PRICING.metadata,
       diagnostics: 0,
     }))
 
+    expect(store.getSnapshot().visibleCost).toEqual(totalCost)
     store.selectAgent('child')
 
     expect(store.getSnapshot().visibleTools.map(item => item.callId)).toEqual(['b'])
     expect(store.getSnapshot().visibleTotals).toEqual(tokens(7))
+    expect(store.getSnapshot().visibleCost).toEqual(childCost)
     store.selectAgent(undefined)
     expect(store.getSnapshot().visibleTools.map(item => item.callId)).toEqual(['a', 'b'])
+    expect(store.getSnapshot().visibleCost).toEqual(totalCost)
+
+    const childReplacement = cost(0.07, 0.55, 1)
+    const totalReplacement = cost(0.21, 1.5, 2)
+    store.receive(tokenUpdate('s1', 1, 1, 10, 1_000, {
+      sessionId: 'child',
+      cost: childReplacement,
+      totalCost: totalReplacement,
+    }))
+    expect(store.getSnapshot().visibleCost).toEqual(totalReplacement)
+    store.selectAgent('child')
+    expect(store.getSnapshot().visibleCost).toEqual(childReplacement)
   })
 
   it('computes recent token velocity over the configured window', () => {
@@ -132,22 +149,32 @@ function tokenUpdate(
   streamSeq: number,
   total: number,
   timestamp: number,
+  estimates: {
+    readonly sessionId?: string
+    readonly cost?: ReturnType<typeof zeroCost>
+    readonly totalCost?: ReturnType<typeof zeroCost>
+  } = {},
 ): MissionMessage {
   return {
     type: 'token/update',
     subscriptionId,
     generation,
     streamSeq,
-    sessionId: 'root',
+    sessionId: estimates.sessionId ?? 'root',
     timestamp,
     tokens: tokens(total),
     totals: tokens(total),
-    cost: zeroCost(),
-    totalCost: zeroCost(),
+    cost: estimates.cost ?? zeroCost(),
+    totalCost: estimates.totalCost ?? zeroCost(),
   }
 }
 
-function agent(id: string, value: number, parentId?: string) {
+function agent(
+  id: string,
+  value: number,
+  parentId?: string,
+  estimate = zeroCost(),
+) {
   return {
     id,
     ...(parentId === undefined ? {} : { parentId }),
@@ -156,7 +183,7 @@ function agent(id: string, value: number, parentId?: string) {
     startedAt: 0,
     status: 'idle' as const,
     tokens: tokens(value),
-    cost: zeroCost(),
+    cost: estimate,
   }
 }
 
@@ -182,4 +209,8 @@ function tokens(value: number) {
 
 function zeroCost() {
   return { usd: 0, cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
+}
+
+function cost(usd: number, cny: number, pricedSteps: number) {
+  return { ...zeroCost(), usd, cny, pricedSteps }
 }

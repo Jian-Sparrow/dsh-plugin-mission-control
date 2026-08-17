@@ -5,6 +5,7 @@ import type {
   TokenBuckets,
   ToolView,
 } from '../protocol.ts'
+import type { CostEstimate } from '../host/cost.ts'
 
 /** Browser connection state shown by the live HUD. */
 export type MissionConnection =
@@ -20,6 +21,7 @@ export interface MissionStoreSnapshot {
   readonly selectedAgentId: string | undefined
   readonly visibleTools: readonly ToolView[]
   readonly visibleTotals: TokenBuckets
+  readonly visibleCost: CostEstimate
   readonly recentTokensPerSecond: number
   readonly followingTools: boolean
 }
@@ -44,6 +46,14 @@ const ZERO_TOKENS: TokenBuckets = {
   cacheWriteTokens: 0,
 }
 
+const ZERO_COST: CostEstimate = {
+  usd: 0,
+  cny: 0,
+  pricedSteps: 0,
+  unpricedSteps: 0,
+  breakdown: [],
+}
+
 /** Generation-checked observable reducer for Mission Control SSE messages. */
 export class MissionStore {
   private readonly listeners = new Set<() => void>()
@@ -57,6 +67,7 @@ export class MissionStore {
     selectedAgentId: undefined,
     visibleTools: [],
     visibleTotals: ZERO_TOKENS,
+    visibleCost: ZERO_COST,
     recentTokensPerSecond: 0,
     followingTools: true,
   }
@@ -167,6 +178,7 @@ export class MissionStore {
           ? next.mission.tools
           : next.mission.tools.filter(tool => tool.sessionId === next.selectedAgentId),
       visibleTotals: selected?.tokens ?? next.mission?.totals ?? ZERO_TOKENS,
+      visibleCost: selected?.cost ?? next.mission?.cost ?? ZERO_COST,
     }
     for (const listener of this.listeners) listener()
   }
@@ -199,8 +211,11 @@ function reduceFrame(
       return {
         ...snapshot,
         agents: snapshot.agents.map(agent =>
-          agent.id === frame.sessionId ? { ...agent, tokens: frame.tokens } : agent),
+          agent.id === frame.sessionId
+            ? { ...agent, tokens: frame.tokens, cost: frame.cost }
+            : agent),
         totals: frame.totals,
+        cost: frame.totalCost,
       }
     case 'diagnostic':
       return { ...snapshot, diagnostics: frame.diagnostics }
