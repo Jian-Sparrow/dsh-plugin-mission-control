@@ -41,7 +41,7 @@ The initial model prices come from the DeepSeek official Models & Pricing page c
 
 DeepSeek does not publish a separate cache-write charge. The catalog therefore records cache-write price as zero for these official routes and documents that provider behavior. A nonzero cache-write count remains visible in the Token HUD.
 
-At release time, the maintainer records the most recent PBC/CFETS USD/CNY central parity available on a business day. The plugin never fetches a new rate at startup. Updating either official prices or the reference rate requires a catalog change, tests, documentation, and a plugin release.
+The initial reference rate is `1 USD = 6.7894 CNY`, effective 2026-07-31, from the Ministry of Commerce republication of the PBC-authorized CFETS central-parity announcement. At each later release, the maintainer records the most recent PBC/CFETS USD/CNY central parity available on a business day. The plugin never fetches a new rate at startup. Updating either official prices or the reference rate requires a catalog change, tests, documentation, and a plugin release.
 
 ## Authoritative usage fold
 
