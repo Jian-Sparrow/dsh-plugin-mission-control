@@ -112,9 +112,84 @@ describe('MissionControlRuntime', () => {
 
     host.setTokens('root', tokens(13))
     subscription.close()
+    host.emitEvent('root', stepStart(1, 1))
+    host.emitEvent('root', requestHeader('deepseek-official', 'deepseek-v4-flash'))
+    host.emitEvent('root', assistantUsage(1, 1, {
+      inputTokens: 0,
+      outputTokens: 1_000_000,
+    }))
     expect(vi.getTimerCount()).toBe(0)
     vi.advanceTimersByTime(250)
     expect(sink.messages.filter(message => message.type === 'token/update')).toHaveLength(1)
+  })
+
+  it('publishes a finalized step cost once and replaces an earlier usage chunk', async () => {
+    vi.useFakeTimers()
+    const host = new TestHost([session('root', 10)])
+    const runtime = new MissionControlRuntime(host, config())
+    const sink = new MemorySink()
+    runtime.open('root', 1, sink)
+
+    host.emitEvent('root', stepStart(1, 1))
+    host.emitEvent('root', requestHeader('deepseek-official', 'deepseek-v4-flash'))
+    host.emitEvent('root', usageChunk(1, 1, {
+      inputTokens: 0,
+      outputTokens: 500_000,
+    }))
+    host.emitEvent('root', assistantUsage(1, 1, {
+      inputTokens: 0,
+      outputTokens: 1_000_000,
+    }))
+    await vi.advanceTimersByTimeAsync(250)
+
+    const update = sink.messages.findLast(message => message.type === 'token/update')
+    expect(update?.cost.usd).toBeCloseTo(0.28)
+  })
+
+  it('keeps earlier Flash cost when a later step switches to Pro', async () => {
+    vi.useFakeTimers()
+    const host = new TestHost([session('root', 10)])
+    const runtime = new MissionControlRuntime(host, config())
+    const sink = new MemorySink()
+    runtime.open('root', 1, sink)
+
+    host.emitEvent('root', stepStart(1, 1))
+    host.emitEvent('root', requestHeader('deepseek-official', 'deepseek-v4-flash'))
+    host.emitEvent('root', assistantUsage(1, 1, {
+      inputTokens: 0,
+      outputTokens: 1_000_000,
+    }))
+    host.emitEvent('root', stepStart(1, 2))
+    host.emitEvent('root', requestHeader('deepseek-official', 'deepseek-v4-pro'))
+    host.emitEvent('root', assistantUsage(1, 2, {
+      inputTokens: 0,
+      outputTokens: 1_000_000,
+    }))
+    await vi.advanceTimersByTimeAsync(250)
+
+    const update = sink.messages.findLast(message => message.type === 'token/update')
+    expect(update?.cost.usd).toBeCloseTo(1.15)
+  })
+
+  it('includes a newly created Session-backed child in total cost', async () => {
+    vi.useFakeTimers()
+    const host = new TestHost([session('root', 10)])
+    const runtime = new MissionControlRuntime(host, config())
+    const sink = new MemorySink()
+    runtime.open('root', 1, sink)
+
+    host.createSession(session('child', 20, 'root'))
+    host.emitEvent('child', stepStart(1, 1))
+    host.emitEvent('child', requestHeader('deepseek-official', 'deepseek-v4-pro'))
+    host.emitEvent('child', assistantUsage(1, 1, {
+      inputTokens: 0,
+      outputTokens: 1_000_000,
+    }))
+    await vi.advanceTimersByTimeAsync(250)
+
+    const update = sink.messages.findLast(message => message.type === 'token/update')
+    expect(update).toMatchObject({ sessionId: 'child' })
+    expect(update?.totalCost.usd).toBeCloseTo(0.87)
   })
 
   it('finishes a Tool call that was already open in the initial snapshot', () => {
@@ -228,6 +303,10 @@ class TestHost implements RuntimeServices {
     this.append(id, { type: 'turn/end', time, data: { reason } })
   }
 
+  emitEvent(id: string, event: unknown): void {
+    this.append(id, event)
+  }
+
   setTokens(id: string, value: TokenBuckets): void {
     const current = this.live.get(id)
     if (current === undefined) throw new Error(`missing test Session ${id}`)
@@ -276,6 +355,39 @@ function toolCallEvent(callId: string, time: number) {
     type: 'tool/call',
     time,
     data: { callId, name: 'bash', arguments: '{"command":"pwd"}' },
+  }
+}
+
+function stepStart(turn: number, step: number) {
+  return { type: 'step/start', time: step, data: { turn, step } }
+}
+
+function requestHeader(provider: string, model: string) {
+  return {
+    type: 'request/header',
+    time: 10,
+    data: { header: { config: { provider, model } }, reason: 'change' },
+  }
+}
+
+function usageChunk(turn: number, step: number, usage: object) {
+  return {
+    type: 'assistant/chunk',
+    time: 20,
+    data: { turn, step, chunk: { type: 'usage', usage } },
+  }
+}
+
+function assistantUsage(turn: number, step: number, usage: object) {
+  return {
+    type: 'assistant/message',
+    time: 30,
+    data: {
+      turn,
+      step,
+      message: { role: 'assistant', content: [] },
+      usage,
+    },
   }
 }
 

@@ -1,4 +1,12 @@
 import type { ResolvedConfig } from '../config.ts'
+import {
+  addCostEstimates,
+  applyCostEvent,
+  createCostTracker,
+  estimateCost,
+  type CostEstimate,
+  type CostTracker,
+} from './cost.ts'
 import type {
   AgentPresentationStatus,
   AgentView,
@@ -58,11 +66,14 @@ interface SubscriptionRecord {
   readonly included: Set<string>
   readonly agents: Map<string, AgentView>
   readonly tokens: Map<string, TokenBuckets>
+  readonly costTrackers: Map<string, CostTracker>
+  readonly costs: Map<string, CostEstimate>
   readonly agentRunning: Set<string>
   readonly terminal: Map<string, AgentPresentationStatus>
   tools: ToolState
   nextStreamSeq: number
   pendingTokens: Set<string>
+  pendingCost: Set<string>
   tokenTimer: ReturnType<typeof setTimeout> | undefined
   closed: boolean
 }
@@ -108,6 +119,13 @@ export class MissionControlRuntime {
     const id = `mission-${this.nextSubscriptionId++}`
     const agents = new Map(snapshot.agents.map(agent => [agent.id, agent]))
     const tokens = new Map(snapshot.agents.map(agent => [agent.id, agent.tokens]))
+    const costTrackers = new Map(
+      snapshot.agents.map(agent => {
+        const session = this.services.sessions.get(agent.id)
+        return [agent.id, createCostTracker(session?.events ?? [])]
+      }),
+    )
+    const costs = new Map(snapshot.agents.map(agent => [agent.id, agent.cost]))
     const agentRunning = new Set(
       snapshot.agents
         .filter(agent => this.services.agents.get(agent.id)?.status === 'running')
@@ -122,11 +140,14 @@ export class MissionControlRuntime {
       included: new Set(snapshot.agents.map(agent => agent.id)),
       agents,
       tokens,
+      costTrackers,
+      costs,
       agentRunning,
       terminal: new Map(),
       tools,
       nextStreamSeq: 1,
       pendingTokens: new Set(),
+      pendingCost: new Set(),
       tokenTimer: undefined,
       closed: false,
     }
@@ -165,6 +186,8 @@ export class MissionControlRuntime {
       record.included.add(agent.id)
       record.agents.set(agent.id, agent)
       record.tokens.set(agent.id, agent.tokens)
+      record.costTrackers.set(agent.id, createCostTracker(session.events))
+      record.costs.set(agent.id, agent.cost)
       if (this.services.agents.get(agent.id)?.status === 'running') {
         record.agentRunning.add(agent.id)
       }
@@ -193,6 +216,15 @@ export class MissionControlRuntime {
   private onSessionEvent(session: SnapshotSession, event: unknown): void {
     for (const record of this.subscriptions.values()) {
       if (!record.included.has(session.id)) continue
+      const tracker = record.costTrackers.get(session.id)
+      if (tracker !== undefined && applyCostEvent(tracker, event)) {
+        const cost = estimateCost(tracker)
+        record.costs.set(session.id, cost)
+        const agent = record.agents.get(session.id)
+        if (agent !== undefined) record.agents.set(session.id, { ...agent, cost })
+        record.pendingCost.add(session.id)
+        this.armTokenTimer(record)
+      }
       if (isToolCall(event)) {
         record.tools = trimToolState(
           startTool(record.tools, session.id, event),
@@ -298,16 +330,22 @@ export class MissionControlRuntime {
       record.tokenTimer = undefined
       if (record.closed) return
       const totals = sumTokens(record.tokens.values())
-      for (const sessionId of record.pendingTokens) {
+      const totalCost = addCostEstimates(record.costs.values())
+      const pending = new Set([...record.pendingTokens, ...record.pendingCost])
+      for (const sessionId of pending) {
         const tokens = record.tokens.get(sessionId)
-        if (tokens === undefined) continue
+        const cost = record.costs.get(sessionId)
+        if (tokens === undefined || cost === undefined) continue
         this.sendFrame(record, sessionId, Date.now(), {
           type: 'token/update',
           tokens,
           totals,
+          cost,
+          totalCost,
         })
       }
       record.pendingTokens.clear()
+      record.pendingCost.clear()
     }, this.config.tokenPublishIntervalMs)
     record.tokenTimer.unref?.()
   }
@@ -350,6 +388,7 @@ export class MissionControlRuntime {
     if (record.tokenTimer !== undefined) clearTimeout(record.tokenTimer)
     record.tokenTimer = undefined
     record.pendingTokens.clear()
+    record.pendingCost.clear()
     this.subscriptions.delete(record.id)
   }
 }
@@ -359,7 +398,10 @@ type FrameBody =
   | Pick<Extract<MissionFrame, { type: 'agent/status' }>, 'type' | 'agentId' | 'status'>
   | Pick<Extract<MissionFrame, { type: 'tool/start' }>, 'type' | 'tool'>
   | Pick<Extract<MissionFrame, { type: 'tool/finish' }>, 'type' | 'tool'>
-  | Pick<Extract<MissionFrame, { type: 'token/update' }>, 'type' | 'tokens' | 'totals'>
+  | Pick<
+      Extract<MissionFrame, { type: 'token/update' }>,
+      'type' | 'tokens' | 'totals' | 'cost' | 'totalCost'
+    >
   | Pick<Extract<MissionFrame, { type: 'diagnostic' }>, 'type' | 'diagnostics' | 'message'>
 
 function toolStateFrom(tools: readonly ToolView[]): ToolState {
