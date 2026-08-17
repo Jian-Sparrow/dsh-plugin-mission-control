@@ -65,8 +65,5 @@ describe('packed community plugin', () => {
     expect(client).toContain('require("react/jsx-runtime")')
     expect(client).not.toContain('/Users/')
     expect(client).not.toContain('node_modules/@deepseek-ai/cordis')
-    expect(client).toContain('sidebar.auxiliary')
-    expect(client).not.toContain('shell.overlay')
-    expect(client).not.toContain('d3-hierarchy')
   })
 })

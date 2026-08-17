@@ -7,7 +7,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import { MissionHeaderAction, MissionSidebarAction } from './Action.tsx'
 import { MissionControlController } from './controller.ts'
 import { en, NS, zh, type MissionControlKey } from './locales.ts'
-import { MissionControlPanel } from './Panel.tsx'
+import { MissionControlOverlay } from './Overlay.tsx'
 import { installStyles } from './styles.ts'
 import { resolveConfig, type Config } from '../config.ts'
 
@@ -24,17 +24,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Browser services required by the plugin. */
-export const inject = ['sessions', 'slots', 'locale', 'layout']
+export const inject = ['sessions', 'slots', 'locale']
 
-interface SidebarReveal {
-  openSidebar(): void
-}
-
-/** Register Session actions plus the persistent sidebar panel. */
+/** Register global and Session actions plus the persistent full-screen overlay. */
 export function apply(ctx: ClientContext, config: Config = {}): void {
   const controller = new MissionControlController()
   const settings = resolveConfig(config)
-  const openSidebar = () => { (ctx.layout as typeof ctx.layout & SidebarReveal).openSidebar() }
   ctx.provide('missionControl', controller)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mission-control: browser dictionaries')
   ctx.effect(installStyles, 'mission-control: browser stylesheet')
@@ -43,20 +38,22 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
     id: 'mission-control-header',
     order: 30,
     locale: NS,
-    inject: () => ({ controller, openSidebar }),
+    inject: () => ({ controller }),
   }, MissionHeaderAction))
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
     name: 'sidebar.footer.action',
     id: 'mission-control-sidebar',
     order: 30,
     locale: NS,
-    inject: () => ({ controller, openSidebar }),
+    inject: () => ({ controller }),
   }, MissionSidebarAction))
-  ctx.slots.inject('sidebar.auxiliary', () => ctx.slots.register({
-    name: 'sidebar.auxiliary',
+  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+    name: 'shell.overlay',
+    id: 'mission-control-overlay',
+    order: 30,
     locale: NS,
     inject: () => ({ controller, settings }),
-  }, MissionControlPanel))
+  }, MissionControlOverlay))
 }
 
 export { parseMissionMessage } from '../protocol.ts'
@@ -64,4 +61,4 @@ export * from './store.ts'
 export * from './source.ts'
 export * from './controller.ts'
 export * from './Action.tsx'
-export * from './Panel.tsx'
+export * from './Overlay.tsx'

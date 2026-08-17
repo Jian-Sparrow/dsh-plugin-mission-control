@@ -1,9 +1,9 @@
-/** Closed or open panel identity exposed through an observable store. */
+/** Closed or open overlay identity exposed through an observable store. */
 export type ControllerSnapshot =
   | { readonly open: false }
   | {
       readonly open: true
-      readonly sessionId: string | undefined
+      readonly sessionId: string
       readonly generation: number
     }
 
@@ -14,13 +14,13 @@ export class MissionControlController {
   private returnFocus: HTMLElement | undefined
   private state: ControllerSnapshot = { open: false }
 
-  /** @returns the current panel state. */
+  /** @returns the current overlay state. */
   getSnapshot(): ControllerSnapshot {
     return this.state
   }
 
   /**
-   * Subscribe to panel state changes.
+   * Subscribe to overlay state changes.
    * @param listener - callback invoked after open or close.
    * @returns disposer for this listener.
    */
@@ -30,31 +30,16 @@ export class MissionControlController {
   }
 
   /**
-   * Toggle the panel for one Session, or open its idle state without a Session.
-   * @param sessionId - current Harness Session id when one is selected.
-   * @param returnFocus - launch control restored after closing.
+   * Open a fresh viewing generation for one Session.
+   * @param sessionId - current Harness Session id.
    */
-  toggle(sessionId: string | undefined, returnFocus?: HTMLElement): void {
-    if (this.state.open && this.state.sessionId === sessionId) {
-      this.close()
-      return
-    }
+  open(sessionId: string, returnFocus?: HTMLElement): void {
     this.returnFocus = returnFocus
     this.state = { open: true, sessionId, generation: ++this.generation }
     this.notify()
   }
 
-  /**
-   * Follow a newly selected Session while the panel remains open.
-   * @param sessionId - newly selected Session, or undefined for the idle state.
-   */
-  retarget(sessionId: string | undefined): void {
-    if (!this.state.open || this.state.sessionId === sessionId) return
-    this.state = { open: true, sessionId, generation: ++this.generation }
-    this.notify()
-  }
-
-  /** Close the panel without resetting its generation counter. */
+  /** Close the overlay without resetting its generation counter. */
   close(): void {
     if (!this.state.open) return
     this.state = { open: false }

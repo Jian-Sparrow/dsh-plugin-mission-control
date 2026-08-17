@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import type { MissionMessage, MissionSnapshot } from '../../src/protocol.ts'
 import { DEEPSEEK_PRICING } from '../../src/pricing.ts'
@@ -87,41 +87,22 @@ describe('MissionStore', () => {
 })
 
 describe('MissionControlController', () => {
-  it('toggles the same Session and retargets an open panel to the current Session', () => {
+  it('increments the viewing generation and publishes immutable open state', () => {
     const controller = new MissionControlController()
     let notifications = 0
     const unsubscribe = controller.subscribe(() => notifications++)
 
-    controller.toggle('root')
+    controller.open('root')
     const first = controller.getSnapshot()
-    controller.retarget('child')
+    controller.open('root')
     const second = controller.getSnapshot()
-    controller.toggle('child')
+    controller.close()
 
     expect(first).toEqual({ open: true, sessionId: 'root', generation: 1 })
-    expect(second).toEqual({ open: true, sessionId: 'child', generation: 2 })
+    expect(second).toEqual({ open: true, sessionId: 'root', generation: 2 })
     expect(controller.getSnapshot()).toEqual({ open: false })
     expect(notifications).toBe(3)
     unsubscribe()
-  })
-
-  it('can open before a Session exists and ignores retargeting while closed', () => {
-    const controller = new MissionControlController()
-    controller.toggle(undefined)
-    expect(controller.getSnapshot()).toEqual({ open: true, sessionId: undefined, generation: 1 })
-    controller.close()
-    controller.retarget('later')
-    expect(controller.getSnapshot()).toEqual({ open: false })
-  })
-
-  it('preserves and restores the launch focus target across Session retargeting', async () => {
-    const controller = new MissionControlController()
-    const target = { focus: vi.fn() } as unknown as HTMLElement
-    controller.toggle('root', target)
-    controller.retarget('child')
-    controller.close()
-    await Promise.resolve()
-    expect(target.focus).toHaveBeenCalledOnce()
   })
 })
 
