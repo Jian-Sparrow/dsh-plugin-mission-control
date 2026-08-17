@@ -60,12 +60,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/liujiansmac/dsh-plugin-mission-control.git"
+    "url": "git+https://github.com/Jian-Sparrow/dsh-plugin-mission-control.git"
   },
   "bugs": {
-    "url": "https://github.com/liujiansmac/dsh-plugin-mission-control/issues"
+    "url": "https://github.com/Jian-Sparrow/dsh-plugin-mission-control/issues"
   },
-  "homepage": "https://github.com/liujiansmac/dsh-plugin-mission-control#readme",
+  "homepage": "https://github.com/Jian-Sparrow/dsh-plugin-mission-control#readme",
   "keywords": [
     "deepseek",
     "deepseek-harness",

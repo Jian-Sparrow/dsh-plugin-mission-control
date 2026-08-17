@@ -37,9 +37,21 @@ describe('packed community plugin', () => {
   it('declares the DSH browser entry and imports its Node entry under plain Node', () => {
     const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as {
       dsh?: { client?: { platform?: string }; bundle?: { patch?: string } }
+      repository?: { url?: string }
+      bugs?: { url?: string }
+      homepage?: string
     }
     expect(manifest.dsh?.client?.platform).toBe('web')
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
+    expect(manifest.repository?.url).toBe(
+      'git+https://github.com/Jian-Sparrow/dsh-plugin-mission-control.git',
+    )
+    expect(manifest.bugs?.url).toBe(
+      'https://github.com/Jian-Sparrow/dsh-plugin-mission-control/issues',
+    )
+    expect(manifest.homepage).toBe(
+      'https://github.com/Jian-Sparrow/dsh-plugin-mission-control#readme',
+    )
     expect(() => execFileSync(
       process.execPath,
       ['--input-type=module', '-e', `await import(${JSON.stringify(join(packageRoot, 'lib/index.js'))})`],

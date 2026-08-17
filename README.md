@@ -6,7 +6,7 @@ Live observability for the current DeepSeek Harness Session. Mission Control tur
 
 ## What it shows
 
-- A global HUD with connection state, total tokens, four token buckets, recent token velocity, Agent count, running Tool count, and diagnostics.
+- A global HUD with connection state, total tokens, four token buckets, recent token velocity, estimated CNY cost, Agent count, running Tool count, and diagnostics.
 - A selectable Agent topology rooted at the current Session. Selecting an Agent filters token totals and Tool rows.
 - A live Tool stream with ownership, timing, result state, bounded rows, and optional payload previews.
 - Two native entry points: the current Session header and the DSH Web sidebar footer.
@@ -56,7 +56,20 @@ The HUD token fields come from the Harness token-meter projection:
 - **Cache write**: input written to provider cache.
 - **Recent tokens/s**: change in authoritative totals over the configured rolling window; it is an activity rate, not a billing estimate.
 
-Mission Control intentionally does not calculate monetary cost because model pricing metadata is not uniformly authoritative.
+## Cost estimation
+
+Mission Control calculates an offline estimate only for exact `deepseek-official` routes that match its versioned catalog. Usage is attributed to the provider and model recorded for each `turn`/`step`, so changing models does not reprice earlier work. A finalized usage record replaces an earlier streaming usage sample for the same step instead of being counted twice.
+
+The catalog bundled in this release was checked against [DeepSeek's official pricing page](https://api-docs.deepseek.com/quick_start/pricing) on 2026-08-17:
+
+- `deepseek-v4-flash`: cache hit $0.0028/M, cache miss $0.14/M, output $0.28/M.
+- `deepseek-v4-pro`: cache hit $0.003625/M, cache miss $0.435/M, output $0.87/M.
+- Cache write: $0/M for both catalog routes because DeepSeek does not publish a separate cache-write charge for these routes.
+- Reference conversion: 1 USD = 6.7894 CNY (2026-07-31), from the [People's Bank of China-authorized central parity publication](https://fec.mofcom.gov.cn/article/zyfw/jrfw/jrfwywzn/jrfwwh/hlfxglzy/202607/7208.html).
+
+For each priced step, the plugin calculates `USD = uncached input × cache-miss price + cache reads × cache-hit price + cache writes × 0 + output × output price`, with Token counts divided by one million. It converts the unrounded USD subtotal to CNY using the bundled reference rate. The HUD reports full coverage when every observed step has an exact price, a partial estimate when some steps are excluded, and **No price** when no observed step can be priced. Unknown providers, model aliases, unknown models, and missing request routes remain unpriced rather than being treated as free.
+
+**Estimate only, not an actual bill.** The amount does not include taxes, account-specific terms, promotions, rounding rules, or provider-side billing adjustments, and the plugin never queries account or billing APIs at runtime.
 
 ## Privacy and previews
 
@@ -88,7 +101,7 @@ Every field is validated when the Cordis plugin loads. Invalid configuration fai
 
 In-process, Session-backed subagents appear as descendants and can be inspected with the same authoritative projections as the root. An unreadable Session remains visible as unavailable. External or process-isolated agents that do not publish Harness Session events are opaque; Mission Control does not infer their hidden activity.
 
-This release watches only the current Session and its Session-backed descendants. It does not provide history playback, cross-Session aggregation, cost estimation, distributed tracing, or a standalone Web server. Tool rows are bounded in memory; reopening the dashboard starts a fresh viewing epoch.
+This release watches only the current Session and its Session-backed descendants. It does not provide history playback, cross-Session aggregation, distributed tracing, provider billing reconciliation, or a standalone Web server. Tool rows are bounded in memory; reopening the dashboard starts a fresh viewing epoch.
 
 ## Troubleshooting
 
@@ -108,6 +121,8 @@ pnpm pack --dry-run
 ```
 
 The host entry is ESM at `dsh-plugin-mission-control`; DSH Web loads `dsh-plugin-mission-control/client` through the browser module loader. The browser bundle externalizes React and Cordis-provided runtimes.
+
+Before every release, maintainers must verify both official source pages, update `src/pricing.ts` values, revision and dates when needed, update the exact catalog tests and both README files together, and run `pnpm run verify:release`. Runtime price or exchange-rate fetching must not be introduced.
 
 ## License
 

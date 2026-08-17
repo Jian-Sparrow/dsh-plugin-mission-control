@@ -6,7 +6,7 @@
 
 ## 能看到什么
 
-- 全局 HUD：连接状态、总 Token、四类 Token、近期 Token 速度、Agent 数、运行中 Tool 数和诊断数。
+- 全局 HUD：连接状态、总 Token、四类 Token、近期 Token 速度、人民币预估费用、Agent 数、运行中 Tool 数和诊断数。
 - 以当前 Session 为根的可选择 Agent 拓扑。选择某个 Agent 后，Token 汇总和 Tool 流都会随之过滤。
 - Tool 实时流：归属 Agent、耗时、结果状态、有限行数和可选载荷预览。
 - 两个原生入口：当前 Session 顶部和 DSH Web 侧边栏底部。
@@ -56,7 +56,20 @@ HUD 中的 Token 来自 Harness token-meter 投影：
 - **缓存写入**：写入模型服务缓存的输入 Token。
 - **近期 Token/s**：配置时间窗内权威总量的变化速度；它是活动速度，不是计费估算。
 
-Mission Control 不计算金额成本，因为不同模型的价格元数据并不总是权威且统一。
+## 费用估算
+
+Mission Control 只对版本化目录中精确匹配的 `deepseek-official` 路由进行离线估算。每个 `turn`/`step` 都按其记录的 provider 和 model 归因，因此切换模型不会重新计算之前的费用。同一步骤的最终 usage 会替换流式阶段的早期 usage，不会重复计数。
+
+当前版本内置的目录于 2026-08-17 对照 [DeepSeek 官方价格页](https://api-docs.deepseek.com/quick_start/pricing)核验：
+
+- `deepseek-v4-flash`：缓存命中 $0.0028/M、缓存未命中 $0.14/M、输出 $0.28/M。
+- `deepseek-v4-pro`：缓存命中 $0.003625/M、缓存未命中 $0.435/M、输出 $0.87/M。
+- 缓存写入：两个目录路由均按 $0/M；DeepSeek 没有为这些路由公布单独的缓存写入价格。
+- 参考换算：1 USD = 6.7894 CNY（2026-07-31），来源为[中国人民银行授权的人民币汇率中间价公告](https://fec.mofcom.gov.cn/article/zyfw/jrfw/jrfwywzn/jrfwwh/hlfxglzy/202607/7208.html)。
+
+每个已计价步骤使用公式：`USD = 未缓存输入 × 缓存未命中单价 + 缓存读取 × 缓存命中单价 + 缓存写入 × 0 + 输出 × 输出单价`，Token 数均除以一百万；未舍入的美元小计再按内置参考汇率换算成人民币。所有已观察步骤都能精确计价时显示完整估算；部分步骤无法计价时显示“部分估算”；没有任何已观察步骤可计价时显示“暂无报价”。未知 provider、模型别名、未知模型和缺少请求路由的步骤不会被当作免费使用。
+
+**仅为估算，不是实际账单。** 金额不包含税费、账户专属条款、促销、提供方舍入规则或账单调整；插件运行时也不会查询账户或计费接口。
 
 ## 隐私与预览
 
@@ -88,7 +101,7 @@ Cordis 插件加载时会校验所有字段，非法配置会直接报错。
 
 进程内、Session-backed 的子代理会作为后代节点出现，并与根 Agent 一样读取权威投影。无法读取的 Session 会保留为“不可用”。没有发布 Harness Session 事件的外部或进程隔离 Agent 是不透明的；Mission Control 不会推断它们的隐藏活动。
 
-当前版本只观察当前 Session 及其 Session-backed 后代，不提供历史回放、跨 Session 汇总、费用估算、分布式追踪或独立 Web 服务。Tool 行数有内存上限；重新打开面板会开始新的观看周期。
+当前版本只观察当前 Session 及其 Session-backed 后代，不提供历史回放、跨 Session 汇总、分布式追踪、提供方账单核对或独立 Web 服务。Tool 行数有内存上限；重新打开面板会开始新的观看周期。
 
 ## 故障排查
 
@@ -108,6 +121,8 @@ pnpm pack --dry-run
 ```
 
 宿主 ESM 入口是 `dsh-plugin-mission-control`；DSH Web 通过浏览器模块加载器读取 `dsh-plugin-mission-control/client`。浏览器 bundle 会外置 React 和 Cordis 提供的运行时。
+
+每次发布前，维护者必须核验两个官方来源；需要时同步更新 `src/pricing.ts` 的数值、revision 和日期；同时更新精确目录测试与中英文 README；并运行 `pnpm run verify:release`。不得引入运行时价格或汇率抓取。
 
 ## 许可证
 
