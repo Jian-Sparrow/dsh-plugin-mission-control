@@ -1,6 +1,6 @@
 # Mission Control for DeepSeek Harness
 
-Live observability for the current DeepSeek Harness Session. Mission Control turns Agent activity, Tool calls, in-process subagent collaboration, and authoritative token counters into a compact panel below the DSH Web Session list.
+Live observability for the current DeepSeek Harness Session. Mission Control turns Agent activity, Tool calls, in-process subagent collaboration, and authoritative token counters into a compact panel below the DSH Web Session list, with an expandable full-screen dashboard for deeper inspection.
 
 [中文说明](./README.zh.md)
 
@@ -48,7 +48,9 @@ To change settings, override the complete `mission-control` row in the profile o
 
 Start or open a Session in DSH Web. Choose **Mission Control** in the Session header, or use the **◎ Mission Control** action beside Settings in the sidebar. The sidebar action is disabled when no Session is selected. A collapsed sidebar expands through Harness's existing toggle action; the Session list remains mounted, scrollable, and selectable above the panel. Changing the selected Session retargets the live stream without closing the panel. Closing the panel returns focus to the launch button.
 
-Version 0.2.x intentionally adapts to the Harness rc.7 sidebar DOM rooted at the supported `sidebar.footer.action` slot. It inserts one plugin-owned host immediately before the footer and renders through React Portal; it does not require `openSidebar()`, `sidebar.auxiliary`, or a Harness source patch. A future Harness sidebar markup change may require a corresponding plugin update and fails with a named integration error instead of silently mounting in the wrong place.
+Use **Expand Mission Control** in the inline title bar to open the original large dashboard: Agent topology on the left, Tool live stream on the right, and the Token/CNY HUD above both. Use **Restore Mission Control** to return the same live view to the Session-list panel. Expand and Restore do not reconnect SSE, reset Agent selection, clear Tool rows, or start a new viewing generation. `Escape` closes either presentation.
+
+Version 0.3.x intentionally adapts to the Harness rc.7 sidebar DOM rooted at the supported `sidebar.footer.action` slot. It inserts one plugin-owned host immediately before the footer and renders through React Portal; full-screen presentation portals the same live view to the document body. It does not require `openSidebar()`, `sidebar.auxiliary`, or a Harness source patch. A future Harness sidebar markup change may require a corresponding plugin update and fails with a named integration error instead of silently mounting in the wrong place.
 
 The HUD token fields come from the Harness token-meter projection:
 
@@ -103,7 +105,7 @@ Every field is validated when the Cordis plugin loads. Invalid configuration fai
 
 In-process, Session-backed subagents appear as descendants and can be inspected with the same authoritative projections as the root. An unreadable Session remains visible as unavailable. External or process-isolated agents that do not publish Harness Session events are opaque; Mission Control does not infer their hidden activity.
 
-This release watches only the current Session and its Session-backed descendants. It does not provide history playback, cross-Session aggregation, distributed tracing, provider billing reconciliation, or a standalone Web server. Tool rows are bounded in memory; reopening the dashboard starts a fresh viewing epoch.
+This release watches only the current Session and its Session-backed descendants. It does not provide history playback, cross-Session aggregation, distributed tracing, provider billing reconciliation, or a standalone Web server. Tool rows are bounded in memory; reopening the dashboard starts a fresh viewing epoch. The inline/full-screen presentation choice is not persisted across page reloads or panel reopen.
 
 ## Troubleshooting
 

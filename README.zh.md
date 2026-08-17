@@ -1,6 +1,6 @@
 # DeepSeek Harness Mission Control
 
-面向当前 DeepSeek Harness Session 的实时可观测插件。Mission Control 将 Agent 状态、Tool 调用、进程内子代理协作和权威 Token 计数，呈现为 DSH Web 会话列表下方的紧凑面板。
+面向当前 DeepSeek Harness Session 的实时可观测插件。Mission Control 将 Agent 状态、Tool 调用、进程内子代理协作和权威 Token 计数，呈现为 DSH Web 会话列表下方的紧凑面板，并可放大为全屏控制台进行深入查看。
 
 [English](./README.md)
 
@@ -48,7 +48,9 @@ dsh --profile web
 
 在 DSH Web 中启动或打开一个 Session，然后点击 Session 顶部的 **Mission Control**，或使用侧边栏“设置”旁的 **◎ Mission Control**。没有选中 Session 时，侧边栏入口会禁用。侧栏收起时会通过 Harness 现有的 toggle action 展开；会话列表继续保留在面板上方，可滚动、可切换。切换当前 Session 会让实时流重新定向，不关闭面板；关闭面板后焦点会回到原入口。
 
-0.2.x 版本明确适配 Harness rc.7 的侧栏 DOM，并以受支持的 `sidebar.footer.action` 插槽作为生命周期锚点。插件会在 footer 前插入一个自有宿主，再通过 React Portal 渲染；不需要 `openSidebar()`、`sidebar.auxiliary` 或修改 Harness 源码。未来 Harness 若调整侧栏结构，需要同步更新插件；结构不匹配时会抛出具名集成错误，不会静默挂到错误区域。
+点击小窗标题栏的**全屏显示任务控制台**，即可恢复原来的大屏布局：左侧 Agent 拓扑、右侧 Tool 实时流，上方显示 Token 与人民币费用 HUD。点击**还原任务控制台小窗**会把同一个实时视图放回会话列表下方。放大和还原不会重连 SSE、重置 Agent 选择、清空 Tool 行或开始新的观看周期；按 `Escape` 可关闭任一形态。
+
+0.3.x 版本明确适配 Harness rc.7 的侧栏 DOM，并以受支持的 `sidebar.footer.action` 插槽作为生命周期锚点。插件会在 footer 前插入一个自有宿主，再通过 React Portal 渲染；全屏形态会把同一个实时视图 Portal 到 document body。不需要 `openSidebar()`、`sidebar.auxiliary` 或修改 Harness 源码。未来 Harness 若调整侧栏结构，需要同步更新插件；结构不匹配时会抛出具名集成错误，不会静默挂到错误区域。
 
 HUD 中的 Token 来自 Harness token-meter 投影：
 
@@ -103,7 +105,7 @@ Cordis 插件加载时会校验所有字段，非法配置会直接报错。
 
 进程内、Session-backed 的子代理会作为后代节点出现，并与根 Agent 一样读取权威投影。无法读取的 Session 会保留为“不可用”。没有发布 Harness Session 事件的外部或进程隔离 Agent 是不透明的；Mission Control 不会推断它们的隐藏活动。
 
-当前版本只观察当前 Session 及其 Session-backed 后代，不提供历史回放、跨 Session 汇总、分布式追踪、提供方账单核对或独立 Web 服务。Tool 行数有内存上限；重新打开面板会开始新的观看周期。
+当前版本只观察当前 Session 及其 Session-backed 后代，不提供历史回放、跨 Session 汇总、分布式追踪、提供方账单核对或独立 Web 服务。Tool 行数有内存上限；重新打开面板会开始新的观看周期。小窗/全屏选择不会在页面刷新或重新打开面板后保留。
 
 ## 故障排查
 

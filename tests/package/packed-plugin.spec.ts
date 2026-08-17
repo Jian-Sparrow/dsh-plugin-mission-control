@@ -36,11 +36,13 @@ describe('packed community plugin', () => {
 
   it('declares the DSH browser entry and imports its Node entry under plain Node', () => {
     const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as {
+      version?: string
       dsh?: { client?: { platform?: string }; bundle?: { patch?: string } }
       repository?: { url?: string }
       bugs?: { url?: string }
       homepage?: string
     }
+    expect(manifest.version).toBe('0.3.0')
     expect(manifest.dsh?.client?.platform).toBe('web')
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
     expect(manifest.repository?.url).toBe(
@@ -70,6 +72,8 @@ describe('packed community plugin', () => {
     expect(client).not.toContain('sidebar.auxiliary')
     expect(client).not.toContain('openSidebar')
     expect(client).not.toContain('shell.overlay')
-    expect(client).not.toContain('d3-hierarchy')
+    expect(client).toContain('Expand Mission Control')
+    expect(client).toContain('Restore Mission Control')
+    expect(client).not.toContain('require("d3-hierarchy")')
   })
 })
