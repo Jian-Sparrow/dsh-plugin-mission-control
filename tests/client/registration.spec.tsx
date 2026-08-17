@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MissionHeaderAction, MissionSidebarAction } from '../../src/client/Action.tsx'
@@ -14,6 +14,8 @@ afterEach(() => {
 const t = (key: string) => ({
   'action.label': 'Mission Control',
   'action.open': 'Open Mission Control',
+  'panel.expand': 'Expand Mission Control',
+  'panel.restore': 'Restore Mission Control',
   'overlay.close': 'Close Mission Control',
   'overlay.connecting': 'Connecting',
 }[key] ?? key)
@@ -95,6 +97,7 @@ describe('Mission Control browser registration', () => {
     const sidebar = render(<MissionSidebarAction {...sidebarProps} />, {
       container: fixture.outlet,
     })
+    const page = within(document.body)
     expect(fixture.root.children[1]?.hasAttribute('data-mission-control-panel-host')).toBe(true)
 
     fireEvent.click(sidebar.getByRole('button', { name: 'Open Mission Control' }))
@@ -102,7 +105,20 @@ describe('Mission Control browser registration', () => {
     expect(document.querySelector('[role="region"][aria-label="Mission Control"]')).toBeNull()
 
     sidebar.rerender(<MissionSidebarAction {...sidebarProps} wide />)
+    const inline = document.querySelector('[role="region"][aria-label="Mission Control"]')
+    expect(inline).toBeTruthy()
+    expect(created).toHaveBeenCalledOnce()
+
+    fireEvent.click(page.getByRole('button', { name: 'Expand Mission Control' }))
+    expect(document.querySelector('[role="dialog"][aria-label="Mission Control"]')).toBeTruthy()
+    expect(document.querySelector('[data-mission-control-panel-host]')?.children).toHaveLength(0)
+    expect(created).toHaveBeenCalledOnce()
+
+    fireEvent.click(page.getByRole('button', { name: 'Restore Mission Control' }))
+    await act(async () => {})
+    const expand = page.getByRole('button', { name: 'Expand Mission Control' })
     expect(document.querySelector('[role="region"][aria-label="Mission Control"]')).toBeTruthy()
+    expect(document.activeElement).toBe(expand)
     expect(created).toHaveBeenCalledOnce()
 
     current = 'next-session'
@@ -113,12 +129,28 @@ describe('Mission Control browser registration', () => {
     expect(created).toHaveBeenCalledTimes(2)
     expect(created.mock.calls[1]?.[0]).toContain('sessionId=next-session')
 
+    fireEvent.click(page.getByRole('button', { name: 'Expand Mission Control' }))
+    const dialog = page.getByRole('dialog', { name: 'Mission Control' })
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(sidebar.queryByRole('dialog', { name: 'Mission Control' })).toBeNull()
+    expect(sources[1]?.close).toHaveBeenCalledOnce()
+
+    fireEvent.click(sidebar.getByRole('button', { name: 'Open Mission Control' }))
+    expect(created).toHaveBeenCalledTimes(3)
+    fireEvent.click(page.getByRole('button', { name: 'Expand Mission Control' }))
+    fireEvent.click(page.getByRole('button', { name: 'Close Mission Control' }))
+    expect(sources[2]?.close).toHaveBeenCalledOnce()
+
+    fireEvent.click(sidebar.getByRole('button', { name: 'Open Mission Control' }))
+    expect(created).toHaveBeenCalledTimes(4)
+
     sidebar.rerender(<MissionSidebarAction {...sidebarProps} wide={false} />)
     expect(document.querySelector('[role="region"][aria-label="Mission Control"]')).toBeNull()
-    expect(sources[1]?.close).toHaveBeenCalledOnce()
+    expect(sources[3]?.close).toHaveBeenCalledOnce()
 
     sidebar.unmount()
     expect(document.querySelector('[data-mission-control-panel-host]')).toBeNull()
+    expect(document.querySelector('[role="dialog"][aria-label="Mission Control"]')).toBeNull()
   })
 })
 
