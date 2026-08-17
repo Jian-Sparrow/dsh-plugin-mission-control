@@ -1,3 +1,6 @@
+/** Mission Control presentation selected for the current open view. */
+export type MissionPresentation = 'inline' | 'fullscreen'
+
 /** Closed or open panel identity exposed through an observable store. */
 export type ControllerSnapshot =
   | { readonly open: false }
@@ -5,6 +8,7 @@ export type ControllerSnapshot =
       readonly open: true
       readonly sessionId?: string
       readonly generation: number
+      readonly presentation: MissionPresentation
     }
 
 /** Observable owner of the selected Session and monotonically increasing epoch. */
@@ -41,7 +45,9 @@ export class MissionControlController {
    */
   open(sessionId: string, returnFocus?: HTMLElement): void {
     this.returnFocus = returnFocus
-    this.state = { open: true, sessionId, generation: ++this.generation }
+    this.state = {
+      open: true, sessionId, generation: ++this.generation, presentation: 'inline',
+    }
     this.notify()
   }
 
@@ -57,8 +63,10 @@ export class MissionControlController {
     }
     if (returnFocus !== undefined) this.returnFocus = returnFocus
     this.state = sessionId === undefined
-      ? { open: true, generation: ++this.generation }
-      : { open: true, sessionId, generation: ++this.generation }
+      ? { open: true, generation: ++this.generation, presentation: 'inline' }
+      : {
+          open: true, sessionId, generation: ++this.generation, presentation: 'inline',
+        }
     this.notify()
   }
 
@@ -68,9 +76,24 @@ export class MissionControlController {
    */
   retarget(sessionId: string | undefined): void {
     if (!this.state.open || this.state.sessionId === sessionId) return
+    const { presentation } = this.state
     this.state = sessionId === undefined
-      ? { open: true, generation: ++this.generation }
-      : { open: true, sessionId, generation: ++this.generation }
+      ? { open: true, generation: ++this.generation, presentation }
+      : { open: true, sessionId, generation: ++this.generation, presentation }
+    this.notify()
+  }
+
+  /** Expand the current view without starting a new telemetry generation. */
+  expand(): void {
+    if (!this.state.open || this.state.presentation === 'fullscreen') return
+    this.state = { ...this.state, presentation: 'fullscreen' }
+    this.notify()
+  }
+
+  /** Restore the current view to its inline sidebar host. */
+  restore(): void {
+    if (!this.state.open || this.state.presentation === 'inline') return
+    this.state = { ...this.state, presentation: 'inline' }
     this.notify()
   }
 

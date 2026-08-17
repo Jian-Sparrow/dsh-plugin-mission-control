@@ -98,8 +98,12 @@ describe('MissionControlController', () => {
     const second = controller.getSnapshot()
     controller.close()
 
-    expect(first).toEqual({ open: true, sessionId: 'root', generation: 1 })
-    expect(second).toEqual({ open: true, sessionId: 'root', generation: 2 })
+    expect(first).toEqual({
+      open: true, sessionId: 'root', generation: 1, presentation: 'inline',
+    })
+    expect(second).toEqual({
+      open: true, sessionId: 'root', generation: 2, presentation: 'inline',
+    })
     expect(controller.getSnapshot()).toEqual({ open: false })
     expect(notifications).toBe(3)
     unsubscribe()
@@ -119,14 +123,38 @@ describe('MissionControlController', () => {
 
     controller.toggle('root')
     expect(controller.getSnapshot()).toEqual({
-      open: true, sessionId: 'root', generation: 1,
+      open: true, sessionId: 'root', generation: 1, presentation: 'inline',
     })
     controller.retarget('child')
     expect(controller.getSnapshot()).toEqual({
-      open: true, sessionId: 'child', generation: 2,
+      open: true, sessionId: 'child', generation: 2, presentation: 'inline',
     })
     controller.toggle('child')
     expect(controller.getSnapshot()).toEqual({ open: false })
+  })
+
+  it('changes presentation without restarting the viewing generation', () => {
+    const controller = new MissionControlController()
+    controller.open('root')
+
+    expect(controller.getSnapshot()).toEqual({
+      open: true,
+      sessionId: 'root',
+      generation: 1,
+      presentation: 'inline',
+    })
+    controller.expand()
+    expect(controller.getSnapshot()).toMatchObject({
+      generation: 1, presentation: 'fullscreen',
+    })
+    controller.retarget('child')
+    expect(controller.getSnapshot()).toMatchObject({
+      sessionId: 'child', generation: 2, presentation: 'fullscreen',
+    })
+    controller.restore()
+    expect(controller.getSnapshot()).toMatchObject({
+      generation: 2, presentation: 'inline',
+    })
   })
 })
 
