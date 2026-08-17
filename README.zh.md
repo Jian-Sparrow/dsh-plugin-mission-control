@@ -1,21 +1,22 @@
 # DeepSeek Harness Mission Control
 
-面向当前 DeepSeek Harness Session 的实时可观测插件。Mission Control 将 Agent 状态、Tool 调用、进程内子代理协作和权威 Token 计数，呈现为 DSH Web 内置的全屏控制面板。
+面向当前 DeepSeek Harness Session 的实时可观测插件。Mission Control 将 Agent 状态、Tool 调用、进程内子代理协作和权威 Token 计数，呈现为 DSH Web 会话列表下方的紧凑面板。
 
 [English](./README.md)
 
 ## 能看到什么
 
-- 全局 HUD：连接状态、总 Token、四类 Token、近期 Token 速度、人民币预估费用、Agent 数、运行中 Tool 数和诊断数。
-- 以当前 Session 为根的可选择 Agent 拓扑。选择某个 Agent 后，Token 汇总和 Tool 流都会随之过滤。
+- 紧凑 HUD：连接状态、总 Token、人民币预估费用、Agent 数、运行中 Tool 数和诊断数。
+- 以当前 Session 为根的可选择 Agent 树。选择某个 Agent 后，Token 汇总和 Tool 流都会随之过滤。
 - Tool 实时流：归属 Agent、耗时、结果状态、有限行数和可选载荷预览。
 - 两个原生入口：当前 Session 顶部和 DSH Web 侧边栏底部。
+- Agent 与 Tool 两个标签页；面板打开时，上方会话列表仍可见、可操作。
 
-Mission Control **只做实时直播**。进入页面时只打开一条同源 SSE 订阅；重连期间保留最后一次快照；关闭页面、切换 Session、卸载插件或浏览器断开时释放订阅。它不会向模型上下文增加 Tool、提示词或隐藏思考内容。
+Mission Control **只做实时直播**。面板观察某个 Session 时只打开一条同源 SSE 订阅；重连期间保留最后一次快照；切换 Session 时替换订阅，关闭面板、卸载插件或浏览器断开时释放订阅。它不会向模型上下文增加 Tool、提示词或隐藏思考内容。
 
 ## 环境要求
 
-- DeepSeek Harness `0.1.0-rc.6`
+- DeepSeek Harness `0.1.0-rc.7` 或更高的 `0.1.x` 版本
 - DSH Web profile
 - Node.js `^22.19.0` 或 `>=24.0.0`
 - 通过 Corepack 使用 pnpm
@@ -46,7 +47,7 @@ dsh --profile web
 
 ## 使用
 
-在 DSH Web 中启动或打开一个 Session，然后点击 Session 顶部的 **Mission Control**，或使用侧边栏“设置”旁的 **◎ Mission Control**。没有选中 Session 时，侧边栏入口会禁用。关闭面板后，焦点会回到原入口；切换 Session 会关闭旧面板，也不会自动为新 Session 打开订阅。
+在 DSH Web 中启动或打开一个 Session，然后点击 Session 顶部的 **Mission Control**，或使用侧边栏“设置”旁的 **◎ Mission Control**。两个入口都会展开侧边栏，并切换会话列表下方的紧凑面板。上方列表始终可操作；选择另一个 Session 后，已打开的面板会自动转向新 Session。没有选中 Session 时，面板保持空闲且不会建立遥测连接。侧边栏收起为控制栏时不显示面板；关闭面板后，焦点会回到原入口。
 
 HUD 中的 Token 来自 Harness token-meter 投影：
 
@@ -106,8 +107,8 @@ Cordis 插件加载时会校验所有字段，非法配置会直接报错。
 ## 故障排查
 
 - **看不到入口：**确认 `dsh --profile web --dump-config` 包含 `mission-control` 行，安装 bundle 后重启 DSH Web。
-- **侧边栏入口禁用：**先选择一个 Session。
-- **页面一直显示“正在重连”：**在浏览器 Network 面板检查 `/plugins/mission-control/events`；保持同源，并检查反向代理的缓冲与超时配置。
+- **面板提示选择 Session：**请在面板上方的列表中选择一个 Session。
+- **面板一直显示“正在重连”：**在浏览器 Network 面板检查 `/plugins/mission-control/events`；保持同源，并检查反向代理的缓冲与超时配置。
 - **没有子代理节点：**确认 provider 创建的是进程内、Session-backed 子代理；不透明外部 Agent 无法展开。
 - **Token 不变化：**当前组合必须包含 Harness token-meter 和 Session projection 服务；缺少必需服务时插件会加载失败。
 - **看不到载荷：**`names-only` 是隐私默认值。完整覆盖 Cordis 行后才能切换模式。

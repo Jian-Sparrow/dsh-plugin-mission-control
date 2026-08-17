@@ -1,21 +1,22 @@
 # Mission Control for DeepSeek Harness
 
-Live observability for the current DeepSeek Harness Session. Mission Control turns Agent activity, Tool calls, in-process subagent collaboration, and authoritative token counters into a full-screen dashboard inside DSH Web.
+Live observability for the current DeepSeek Harness Session. Mission Control turns Agent activity, Tool calls, in-process subagent collaboration, and authoritative token counters into a compact panel below the DSH Web Session list.
 
 [中文说明](./README.zh.md)
 
 ## What it shows
 
-- A global HUD with connection state, total tokens, four token buckets, recent token velocity, estimated CNY cost, Agent count, running Tool count, and diagnostics.
-- A selectable Agent topology rooted at the current Session. Selecting an Agent filters token totals and Tool rows.
+- A compact HUD with connection state, total tokens, estimated CNY cost, Agent count, running Tool count, and diagnostics.
+- A selectable Agent tree rooted at the current Session. Selecting an Agent filters token totals and Tool rows.
 - A live Tool stream with ownership, timing, result state, bounded rows, and optional payload previews.
 - Two native entry points: the current Session header and the DSH Web sidebar footer.
+- Agent and Tool tabs that fit the sidebar while the Session list above remains visible and operable.
 
-Mission Control is live-only. It opens one same-origin SSE subscription when you enter the page, freezes the last snapshot while reconnecting, and releases the subscription on close, Session change, plugin unload, or browser disconnect. It does not add model tools, prompts, or hidden reasoning to the model context.
+Mission Control is live-only. It opens one same-origin SSE subscription while the panel watches a Session, freezes the last snapshot while reconnecting, and replaces or releases the subscription on Session change, close, plugin unload, or browser disconnect. It does not add model tools, prompts, or hidden reasoning to the model context.
 
 ## Requirements
 
-- DeepSeek Harness `0.1.0-rc.6`
+- DeepSeek Harness `0.1.0-rc.7` or a later `0.1.x` release
 - The DSH Web profile
 - Node.js `^22.19.0` or `>=24.0.0`
 - pnpm through Corepack
@@ -46,7 +47,7 @@ To change settings, override the complete `mission-control` row in the profile o
 
 ## Use
 
-Start or open a Session in DSH Web. Choose **Mission Control** in the Session header, or use the **◎ Mission Control** action beside Settings in the sidebar. The sidebar action is disabled when no Session is selected. Closing the dashboard returns focus to the launch button. Changing the selected Session closes the old dashboard and does not open the new Session automatically.
+Start or open a Session in DSH Web. Choose **Mission Control** in the Session header, or use the **◎ Mission Control** action beside Settings in the sidebar. Either entry reveals the sidebar and toggles the compact panel below the Session list. The list remains operable, and choosing another Session retargets the open panel to it. With no selected Session, the panel stays open in an idle state without creating a telemetry connection. The panel is hidden in the collapsed control rail; closing it returns focus to the launch button.
 
 The HUD token fields come from the Harness token-meter projection:
 
@@ -106,8 +107,8 @@ This release watches only the current Session and its Session-backed descendants
 ## Troubleshooting
 
 - **The action is missing:** confirm `dsh --profile web --dump-config` contains the `mission-control` row and restart DSH Web after installing the bundle.
-- **The sidebar action is disabled:** select a Session first.
-- **The page says Reconnecting:** inspect the browser Network panel for `/plugins/mission-control/events`; keep the request same-origin and check reverse-proxy buffering/timeouts.
+- **The panel shows Select a Session:** choose a Session from the list above it.
+- **The panel says Reconnecting:** inspect the browser Network panel for `/plugins/mission-control/events`; keep the request same-origin and check reverse-proxy buffering/timeouts.
 - **No subagent node appears:** verify the provider creates Session-backed, in-process subagents. Opaque external agents cannot be expanded.
 - **Token totals do not move:** the active composition must include the Harness token-meter and Session projection services; the plugin fails to load when required services are absent.
 - **Payloads are hidden:** `names-only` is the privacy default. Override the complete Cordis row to choose another mode.

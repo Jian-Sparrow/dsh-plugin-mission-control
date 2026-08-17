@@ -35,28 +35,31 @@ const snapshot: MissionSnapshot = {
 afterEach(cleanup)
 
 describe('MissionDashboard', () => {
-  it('renders the HUD, topology, non-color states, and Agent-filtered Tool stream', () => {
+  it('renders compact metrics and switches between Agent and filtered Tool tabs', () => {
     const { store, controller, props } = bench()
     const view = render(<MissionDashboard {...props} />)
 
     expect(view.getByText('20')).toBeTruthy()
     expect(view.getByText('3 agents')).toBeTruthy()
     expect(view.getByText('1 running tool')).toBeTruthy()
-    expect(view.getAllByTestId('agent-edge')).toHaveLength(2)
     expect(view.getByLabelText('Error status')).toBeTruthy()
     expect(view.getByText('Researcher')).toBeTruthy()
-    expect(view.getByText('web_search')).toBeTruthy()
-    expect(view.getByText('read_file')).toBeTruthy()
+    expect(view.queryByText('web_search')).toBeNull()
 
     fireEvent.click(view.getByRole('button', { name: 'Select Researcher' }))
     expect(store.getSnapshot().selectedAgentId).toBe('child-a')
+    fireEvent.click(view.getByRole('tab', { name: /^Tools/ }))
+    expect(view.getByText('web_search')).toBeTruthy()
     expect(view.queryByText('read_file')).toBeNull()
     expect(view.getByText('1 agent')).toBeTruthy()
 
+    fireEvent.click(view.getByRole('tab', { name: /^Agents/ }))
     fireEvent.click(view.getByRole('button', { name: 'Show all agents' }))
     expect(store.getSnapshot().selectedAgentId).toBeUndefined()
+    fireEvent.click(view.getByRole('tab', { name: /^Tools/ }))
     expect(view.getByText('read_file')).toBeTruthy()
 
+    fireEvent.click(view.getByRole('tab', { name: /^Agents/ }))
     fireEvent.keyDown(view.getByRole('button', { name: 'Select Writer' }), { key: 'Enter' })
     fireEvent.click(view.getByRole('button', { name: 'Select Writer' }))
     expect(store.getSnapshot().selectedAgentId).toBe('child-b')
@@ -68,6 +71,7 @@ describe('MissionDashboard', () => {
   it('suspends Tool auto-follow on upward scroll and restores the live tail', () => {
     const { props, store } = bench()
     const view = render(<MissionDashboard {...props} />)
+    fireEvent.click(view.getByRole('tab', { name: /^Tools/ }))
     const stream = view.getByRole('log', { name: 'Live tool stream' })
     Object.defineProperties(stream, {
       scrollHeight: { configurable: true, value: 500 },
@@ -86,6 +90,7 @@ describe('MissionDashboard', () => {
     const { props } = bench('full')
     const view = render(<MissionDashboard {...props} />)
     expect(view.getByRole('status').textContent).toContain('Full tool payloads are visible')
+    fireEvent.click(view.getByRole('tab', { name: /^Tools/ }))
     expect(within(view.getByRole('log')).getByText('{"query":"mission control"}')).toBeTruthy()
   })
 
@@ -141,7 +146,7 @@ function bench(
   store.receive({ type: 'snapshot', subscriptionId: 'sub', generation: 1, snapshot: mission })
   store.setConnection('reconnecting')
   const controller = new MissionControlController()
-  controller.open('root')
+  controller.toggle('root')
   const props = {
     store,
     controller,
@@ -189,6 +194,8 @@ function translate(key: string, params?: Record<string, unknown>): string {
     'status.responding': 'Responding',
     'status.tool': 'Using tool',
     'status.error': 'Error',
+    'tabs.agents': 'Agents',
+    'tabs.tools': 'Tools',
     'tools.panel': 'Tool activity',
     'tools.title': 'Tool stream',
     'tools.aria': 'Live tool stream',

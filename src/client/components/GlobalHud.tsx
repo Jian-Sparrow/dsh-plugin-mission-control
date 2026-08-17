@@ -64,11 +64,6 @@ export function GlobalHud({ state, sessionTitle, previewMode, t }: GlobalHudProp
           </details>
         )}
       </div>
-      <Metric label={t('hud.input')} value={format(totals.uncachedInputTokens)} />
-      <Metric label={t('hud.output')} value={format(totals.outputTokens)} />
-      <Metric label={t('hud.cacheRead')} value={format(totals.cacheReadTokens)} />
-      <Metric label={t('hud.cacheWrite')} value={format(totals.cacheWriteTokens)} />
-      <Metric label={t('hud.rate')} value={`${state.recentTokensPerSecond.toFixed(1)}/s`} />
       <div className="mc-hud__counts">
         <span>{t(agents === 1 ? 'hud.agent' : 'hud.agents', { count: agents })}</span>
         <span>{t(runningTools === 1 ? 'hud.runningTool' : 'hud.runningTools', { count: runningTools })}</span>

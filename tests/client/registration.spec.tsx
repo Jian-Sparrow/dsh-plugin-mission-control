@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MissionHeaderAction, MissionSidebarAction } from '../../src/client/Action.tsx'
 import { MissionControlController } from '../../src/client/controller.ts'
 import { apply, inject } from '../../src/client/index.ts'
-import { MissionControlOverlay } from '../../src/client/Overlay.tsx'
+import { MissionControlPanel } from '../../src/client/Panel.tsx'
 
 afterEach(() => {
   cleanup()
@@ -15,12 +15,12 @@ afterEach(() => {
 const t = (key: string) => ({
   'action.label': 'Mission Control',
   'action.open': 'Open Mission Control',
-  'overlay.close': 'Close Mission Control',
-  'overlay.connecting': 'Connecting',
+  'panel.close': 'Close Mission Control',
+  'panel.connecting': 'Connecting',
 }[key] ?? key)
 
 describe('Mission Control browser registration', () => {
-  it('contributes and disposes all three DSH Web surfaces', () => {
+  it('contributes and disposes the two actions plus the sidebar panel', () => {
     const entries = new Map<string, { id: string | undefined; component: unknown }>()
     const disposers: Array<() => void> = []
     const ctx = {
@@ -31,6 +31,7 @@ describe('Mission Control browser registration', () => {
         return () => {}
       },
       locale: { register: () => () => {} },
+      layout: { openSidebar: vi.fn() },
       slots: {
         inject: (_name: string, setup: () => () => void) => {
           disposers.push(setup())
@@ -47,22 +48,22 @@ describe('Mission Control browser registration', () => {
     }
 
     apply(ctx as never)
-    expect(inject).toEqual(['sessions', 'slots', 'locale'])
+    expect(inject).toEqual(['sessions', 'slots', 'locale', 'layout'])
     expect(entries.get('conversation.session.header.actions')).toEqual({
       id: 'mission-control-header', component: MissionHeaderAction,
     })
     expect(entries.get('sidebar.footer.action')).toEqual({
       id: 'mission-control-sidebar', component: MissionSidebarAction,
     })
-    expect(entries.get('shell.overlay')).toEqual({
-      id: 'mission-control-overlay', component: MissionControlOverlay,
+    expect(entries.get('sidebar.auxiliary')).toEqual({
+      id: undefined, component: MissionControlPanel,
     })
 
     for (const dispose of disposers.reverse()) dispose()
     expect(entries.size).toBe(0)
   })
 
-  it('opens the bound Session, streams once, closes, and disables without a current Session', () => {
+  it('reveals the sidebar, streams the current Session, retargets, and hides in rail mode', () => {
     const controller = new MissionControlController()
     const created = vi.fn(() => ({
       onmessage: null,
@@ -71,6 +72,7 @@ describe('Mission Control browser registration', () => {
       close: vi.fn(),
     }))
     let current: string | undefined = 'mission-session'
+    const openSidebar = vi.fn()
     const useSessions = <Selected,>(selector: (value: {
       current?: string
       byId: Record<string, { displayTitle: string }>
@@ -81,35 +83,46 @@ describe('Mission Control browser registration', () => {
 
     const headerProps = {
       controller,
+      openSidebar,
       sessionId: 'mission-session',
       t,
       useSessions,
     } as unknown as ComponentProps<typeof MissionHeaderAction>
     const header = render(<MissionHeaderAction {...headerProps} />)
     fireEvent.click(header.getByRole('button', { name: 'Open Mission Control' }))
+    expect(openSidebar).toHaveBeenCalledOnce()
 
-    const overlayProps = {
+    const panelProps = {
       controller,
       createSource: created,
       settings: { previewMode: 'names-only', maxLiveRows: 20, velocityWindowMs: 5_000 },
       useSessions,
+      wide: true,
       t,
-    } as unknown as ComponentProps<typeof MissionControlOverlay>
-    const overlay = render(<MissionControlOverlay {...overlayProps} />)
-    expect(overlay.getByRole('dialog', { name: 'Mission Control' })).toBeTruthy()
+    } as unknown as ComponentProps<typeof MissionControlPanel>
+    const panel = render(<MissionControlPanel {...panelProps} />)
+    expect(panel.getByRole('region', { name: 'Mission Control' })).toBeTruthy()
     expect(created).toHaveBeenCalledOnce()
-    fireEvent.click(overlay.getByRole('button', { name: 'Close Mission Control' }))
-    expect(overlay.queryByRole('dialog')).toBeNull()
 
     current = undefined
+    panel.rerender(<MissionControlPanel {...panelProps} />)
+    expect(controller.getSnapshot()).toMatchObject({ open: true, sessionId: undefined })
+    expect(created.mock.results[0]?.value.close).toHaveBeenCalledOnce()
+
+    panel.rerender(<MissionControlPanel {...panelProps} wide={false} />)
+    expect(panel.queryByRole('region', { name: 'Mission Control' })).toBeNull()
+
     const sidebarProps = {
       controller,
+      openSidebar,
       useSessions,
       wide: true,
       t,
     } as unknown as ComponentProps<typeof MissionSidebarAction>
     const sidebar = render(<MissionSidebarAction {...sidebarProps} />)
-    expect(sidebar.container.querySelector('button')?.hasAttribute('disabled'))
-      .toBe(true)
+    const sidebarButton = sidebar.container.querySelector('button')
+    if (sidebarButton === null) throw new Error('sidebar action missing')
+    fireEvent.click(sidebarButton)
+    expect(openSidebar).toHaveBeenCalledTimes(2)
   })
 })
