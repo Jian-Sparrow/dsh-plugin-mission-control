@@ -62,16 +62,16 @@ HUD 中的 Token 来自 Harness token-meter 投影：
 
 ## 费用估算
 
-Mission Control 只对版本化目录中精确匹配的 `deepseek-official` 路由进行离线估算。每个 `turn`/`step` 都按其记录的 provider 和 model 归因，因此切换模型不会重新计算之前的费用。同一步骤的最终 usage 会替换流式阶段的早期 usage，不会重复计数。
+Mission Control 只对版本化目录中精确匹配的 `deepseek-official` 路由进行离线估算。每个步骤都会继承最近一次已记录的请求 Header，直到后续 Header 改变路由；因此模型配置不变的多步骤 Session 可以完整计价，切换模型也不会重新计算之前的费用。同一步骤的最终 usage 会替换流式阶段的早期 usage，不会重复计数。
 
-当前版本内置的目录于 2026-08-17 对照 [DeepSeek 官方价格页](https://api-docs.deepseek.com/quick_start/pricing)核验：
+当前版本内置的目录于 2026-08-18 对照 [DeepSeek 官方中文价格页](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)核验，以下均为每百万 Token 的人民币价格：
 
-- `deepseek-v4-flash`：缓存命中 $0.0028/M、缓存未命中 $0.14/M、输出 $0.28/M。
-- `deepseek-v4-pro`：缓存命中 $0.003625/M、缓存未命中 $0.435/M、输出 $0.87/M。
-- 缓存写入：两个目录路由均按 $0/M；DeepSeek 没有为这些路由公布单独的缓存写入价格。
-- 参考换算：1 USD = 6.7894 CNY（2026-07-31），来源为[中国人民银行授权的人民币汇率中间价公告](https://fec.mofcom.gov.cn/article/zyfw/jrfw/jrfwywzn/jrfwwh/hlfxglzy/202607/7208.html)。
+- `deepseek-v4-flash`：空闲时段缓存命中 ¥0.05、缓存未命中 ¥1.50、输出 ¥4.50；高峰时段分别为 ¥0.10、¥3.00、¥9.00。
+- `deepseek-v4-pro`：空闲时段缓存命中 ¥0.15、缓存未命中 ¥4.50、输出 ¥13.50；高峰时段分别为 ¥0.30、¥9.00、¥27.00。
+- 高峰时段为北京时间 09:00–12:00、14:00–18:00，其余为空闲时段。
+- 缓存写入按 ¥0/M；DeepSeek 没有为这些路由公布单独的缓存写入价格。
 
-每个已计价步骤使用公式：`USD = 未缓存输入 × 缓存未命中单价 + 缓存读取 × 缓存命中单价 + 缓存写入 × 0 + 输出 × 输出单价`，Token 数均除以一百万；未舍入的美元小计再按内置参考汇率换算成人民币。所有已观察步骤都能精确计价时显示完整估算；部分步骤无法计价时显示“部分估算”；没有任何已观察步骤可计价时显示“暂无报价”。未知 provider、模型别名、未知模型和缺少请求路由的步骤不会被当作免费使用。
+每个已计价步骤会根据步骤开始时间选择峰谷价格，并使用公式：`CNY = 未缓存输入 × 缓存未命中单价 + 缓存读取 × 缓存命中单价 + 缓存写入 × 0 + 输出 × 输出单价`，Token 数均除以一百万。HUD 会显示已计价步骤占比；所有已观察步骤都能精确计价时显示完整估算；部分步骤无法计价时显示“部分估算”；没有任何已观察步骤可计价时显示“暂无报价”。未知 provider、模型别名、未知模型、缺少请求路由或时间戳的步骤不会被当作免费使用。
 
 **仅为估算，不是实际账单。** 金额不包含税费、账户专属条款、促销、提供方舍入规则或账单调整；插件运行时也不会查询账户或计费接口。
 
@@ -126,7 +126,7 @@ pnpm pack --dry-run
 
 宿主 ESM 入口是 `dsh-plugin-mission-control`；DSH Web 通过浏览器模块加载器读取 `dsh-plugin-mission-control/client`。浏览器 bundle 会外置 React 和 Cordis 提供的运行时。
 
-每次发布前，维护者必须核验两个官方来源；需要时同步更新 `src/pricing.ts` 的数值、revision 和日期；同时更新精确目录测试与中英文 README；并运行 `pnpm run verify:release`。不得引入运行时价格或汇率抓取。
+每次发布前，维护者必须核验官方中文价格页；需要时同步更新 `src/pricing.ts` 的数值、revision 和日期；同时更新精确目录测试与中英文 README；并运行 `pnpm run verify:release`。不得引入运行时价格抓取。
 
 ## 许可证
 

@@ -11,13 +11,6 @@ const CNY = new Intl.NumberFormat('zh-CN', {
   maximumFractionDigits: 6,
 })
 
-const USD = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 6,
-  maximumFractionDigits: 6,
-})
-
 /**
  * Classify whether every observed model step has an exact bundled price.
  * @param cost - estimate coverage counters.
@@ -37,13 +30,4 @@ export function costCoverage(
  */
 export function formatCny(cost: Pick<CostEstimate, 'cny'>): string {
   return CNY.format(cost.cny)
-}
-
-/**
- * Format the USD source subtotal independently of CNY conversion.
- * @param cost - estimate containing the USD subtotal.
- * @returns a fixed six-decimal USD value.
- */
-export function formatUsd(cost: Pick<CostEstimate, 'usd'>): string {
-  return USD.format(cost.usd)
 }

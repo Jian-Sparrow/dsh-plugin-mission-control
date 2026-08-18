@@ -5,24 +5,23 @@ import { parseMissionMessage } from '../src/protocol.ts'
 const flashPrice = {
   provider: 'deepseek-official',
   model: 'deepseek-v4-flash',
-  cacheHitUsdPerMillion: 0.0028,
-  cacheMissUsdPerMillion: 0.14,
-  outputUsdPerMillion: 0.28,
-  cacheWriteUsdPerMillion: 0,
+  period: 'off-peak',
+  cacheHitCnyPerMillion: 0.05,
+  cacheMissCnyPerMillion: 1.5,
+  outputCnyPerMillion: 4.5,
+  cacheWriteCnyPerMillion: 0,
 } as const
 
 const pricing = {
-  revision: 'deepseek-2026-08-17',
-  priceCheckedAt: '2026-08-17',
-  priceSource: 'https://api-docs.deepseek.com/quick_start/pricing',
-  usdToCny: 6.7894,
-  fxEffectiveAt: '2026-07-31',
-  fxSource: 'https://fec.mofcom.gov.cn/article/zyfw/jrfw/jrfwywzn/jrfwwh/hlfxglzy/202607/7208.html',
+  revision: 'deepseek-2026-08-18',
+  priceCheckedAt: '2026-08-18',
+  priceSource: 'https://api-docs.deepseek.com/zh-cn/quick_start/pricing/',
+  timeZone: 'Asia/Shanghai',
+  peakHours: '09:00-12:00, 14:00-18:00',
 } as const
 
 const cost = {
-  usd: 0.1,
-  cny: 0.67894,
+  cny: 0.1,
   pricedSteps: 1,
   unpricedSteps: 0,
   breakdown: [{
@@ -35,8 +34,7 @@ const cost = {
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
     },
-    usd: 0.1,
-    cny: 0.67894,
+    cny: 0.1,
   }],
 }
 
@@ -81,7 +79,7 @@ describe('parseMissionMessage', () => {
     ).toThrow()
     expect(() =>
       parseMissionMessage(snapshot({
-        cost: { ...cost, usd: Number.POSITIVE_INFINITY },
+        cost: { ...cost, cny: Number.POSITIVE_INFINITY },
       })),
     ).toThrow()
   })

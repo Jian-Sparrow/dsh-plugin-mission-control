@@ -47,7 +47,6 @@ const ZERO_TOKENS: TokenBuckets = {
 }
 
 const ZERO_COST: CostEstimate = {
-  usd: 0,
   cny: 0,
   pricedSteps: 0,
   unpricedSteps: 0,

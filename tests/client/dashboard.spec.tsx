@@ -108,27 +108,23 @@ describe('MissionDashboard', () => {
   it('renders a complete CNY estimate with source details', () => {
     const complete: CostEstimate = {
       ...zeroCost(),
-      usd: 0.14,
-      cny: 0.950516,
+      cny: 1.5,
       pricedSteps: 1,
       breakdown: [flashBreakdown],
     }
     const { props } = bench('full', { ...snapshot, cost: complete })
     const view = render(<MissionDashboard {...props} />)
 
-    expect(view.getByText('≈ ¥0.950516')).toBeTruthy()
+    expect(view.getByText('≈ ¥1.50')).toBeTruthy()
     expect(view.getByText('Estimate only, not an actual bill')).toBeTruthy()
-    expect(view.getByText('$0.140000')).toBeTruthy()
-    expect(view.getByText(/1 USD = 6.7894 CNY/)).toBeTruthy()
-    expect(view.getByText(/2026-08-17/)).toBeTruthy()
-    expect(view.getByText(/2026-07-31/)).toBeTruthy()
+    expect(view.getByText(/Off-peak/)).toBeTruthy()
+    expect(view.getByText(/2026-08-18/)).toBeTruthy()
   })
 
   it('labels a partial estimate and reports excluded model steps', () => {
     const partial: CostEstimate = {
       ...zeroCost(),
-      usd: 0.14,
-      cny: 0.950516,
+      cny: 1.5,
       pricedSteps: 1,
       unpricedSteps: 2,
       breakdown: [flashBreakdown],
@@ -138,6 +134,7 @@ describe('MissionDashboard', () => {
 
     expect(view.getByText('Partial estimate')).toBeTruthy()
     expect(view.getByText('2 model steps excluded')).toBeTruthy()
+    expect(view.getByText('1 of 3 model steps priced')).toBeTruthy()
   })
 
   it('shows no price when every observed model step is unpriced', () => {
@@ -189,12 +186,13 @@ function translate(key: string, params?: Record<string, unknown>): string {
     'hud.noPrice': 'No price',
     'hud.costDetails': 'Cost estimate details',
     'hud.notBill': 'Estimate only, not an actual bill',
-    'hud.usdSubtotal': 'USD subtotal',
-    'hud.exchangeRate': 'Reference rate: 1 USD = {rate} CNY',
     'hud.priceCheckedAt': 'Prices checked {date}',
-    'hud.fxEffectiveAt': 'Reference rate effective {date}',
+    'hud.pricingSchedule': 'China Standard Time; peak {hours}',
     'hud.unpricedSteps': '{count} model steps excluded',
+    'hud.pricedCoverage': '{priced} of {total} model steps priced',
     'hud.modelPrice': '{model} unit prices',
+    'hud.period.peak': 'Peak',
+    'hud.period.off-peak': 'Off-peak',
     'hud.agent': '{count} agent',
     'hud.agents': '{count} agents',
     'hud.runningTool': '{count} running tool',
@@ -247,7 +245,7 @@ function agent(
 }
 
 function zeroCost() {
-  return { usd: 0, cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
+  return { cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
 }
 
 const flashBreakdown: CostBreakdown = {
@@ -256,10 +254,11 @@ const flashBreakdown: CostBreakdown = {
   price: {
     provider: 'deepseek-official',
     model: 'deepseek-v4-flash',
-    cacheHitUsdPerMillion: 0.0028,
-    cacheMissUsdPerMillion: 0.14,
-    outputUsdPerMillion: 0.28,
-    cacheWriteUsdPerMillion: 0,
+    period: 'off-peak',
+    cacheHitCnyPerMillion: 0.05,
+    cacheMissCnyPerMillion: 1.5,
+    outputCnyPerMillion: 4.5,
+    cacheWriteCnyPerMillion: 0,
   },
   tokens: {
     uncachedInputTokens: 1_000_000,
@@ -267,6 +266,5 @@ const flashBreakdown: CostBreakdown = {
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
   },
-  usd: 0.14,
-  cny: 0.950516,
+  cny: 1.5,
 }

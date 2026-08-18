@@ -1,5 +1,5 @@
 import type { ModelPrice } from '../pricing.ts'
-import { DEEPSEEK_PRICING, findModelPrice } from '../pricing.ts'
+import { findModelPrice } from '../pricing.ts'
 import type { TokenBuckets } from '../protocol.ts'
 
 /** Priced token usage grouped by one exact provider/model route. */
@@ -8,13 +8,11 @@ export interface CostBreakdown {
   readonly model: string
   readonly price: ModelPrice
   readonly tokens: TokenBuckets
-  readonly usd: number
   readonly cny: number
 }
 
 /** Estimated cost and model-step coverage for one live scope. */
 export interface CostEstimate {
-  readonly usd: number
   readonly cny: number
   readonly pricedSteps: number
   readonly unpricedSteps: number
@@ -29,7 +27,9 @@ interface CostSample {
 /** Mutable replay state keyed by the Session log's turn and step ids. */
 export interface CostTracker {
   currentStep?: string | undefined
+  currentRoute?: { readonly provider: string; readonly model: string } | undefined
   readonly routes: Map<string, { readonly provider: string; readonly model: string }>
+  readonly stepTimes: Map<string, number>
   readonly samples: Map<string, CostSample>
 }
 
@@ -41,7 +41,11 @@ export interface CostTracker {
 export function createCostTracker(
   events: readonly unknown[] = [],
 ): CostTracker {
-  const tracker: CostTracker = { routes: new Map(), samples: new Map() }
+  const tracker: CostTracker = {
+    routes: new Map(),
+    stepTimes: new Map(),
+    samples: new Map(),
+  }
   for (const event of events) applyCostEvent(tracker, event)
   return tracker
 }
@@ -57,14 +61,24 @@ export function applyCostEvent(tracker: CostTracker, event: unknown): boolean {
 
   if (event.type === 'step/start') {
     const key = stepKey(event.data.turn, event.data.step)
-    if (key !== undefined) tracker.currentStep = key
+    if (key !== undefined) {
+      tracker.currentStep = key
+      const timestamp = readTimestamp(event.time)
+      if (timestamp !== undefined) tracker.stepTimes.set(key, timestamp)
+      if (tracker.currentRoute !== undefined) {
+        tracker.routes.set(key, tracker.currentRoute)
+      }
+    }
     return false
   }
 
   if (event.type === 'request/header') {
     const config = readRequestConfig(event.data)
-    if (tracker.currentStep !== undefined && config !== undefined) {
-      tracker.routes.set(tracker.currentStep, config)
+    if (config !== undefined) {
+      tracker.currentRoute = config
+      if (tracker.currentStep !== undefined) {
+        tracker.routes.set(tracker.currentStep, config)
+      }
     }
     return false
   }
@@ -72,11 +86,12 @@ export function applyCostEvent(tracker: CostTracker, event: unknown): boolean {
   const sample = readUsageSample(event, event.data)
   if (sample === undefined) return false
   const route = tracker.routes.get(sample.key)
+  const timestamp = tracker.stepTimes.get(sample.key) ?? readTimestamp(event.time)
   const next: CostSample = {
     tokens: sample.tokens,
-    ...(route === undefined
+    ...(route === undefined || timestamp === undefined
       ? {}
-      : { price: findModelPrice(route.provider, route.model) }),
+      : { price: findModelPrice(route.provider, route.model, timestamp) }),
   }
   const previous = tracker.samples.get(sample.key)
   if (previous !== undefined && samplesEqual(previous, next)) return false
@@ -101,9 +116,8 @@ export function estimateCost(tracker: CostTracker): CostEstimate {
     }
     pricedSteps += 1
     const price = sample.price
-    const usd = priceTokens(sample.tokens, price)
-    const cny = usd * DEEPSEEK_PRICING.metadata.usdToCny
-    const key = `${price.provider}:${price.model}`
+    const cny = priceTokens(sample.tokens, price)
+    const key = `${price.provider}:${price.model}:${price.period}`
     const previous = rows.get(key)
     rows.set(key, previous === undefined
       ? {
@@ -111,22 +125,21 @@ export function estimateCost(tracker: CostTracker): CostEstimate {
           model: price.model,
           price,
           tokens: sample.tokens,
-          usd,
           cny,
         }
       : {
           ...previous,
           tokens: addTokens(previous.tokens, sample.tokens),
-          usd: previous.usd + usd,
           cny: previous.cny + cny,
         })
   }
 
   const breakdown = [...rows.values()].sort((left, right) =>
-    `${left.provider}:${left.model}`.localeCompare(`${right.provider}:${right.model}`),
+    `${left.provider}:${left.model}:${left.price.period}`.localeCompare(
+      `${right.provider}:${right.model}:${right.price.period}`,
+    ),
   )
   return {
-    usd: breakdown.reduce((total, row) => total + row.usd, 0),
     cny: breakdown.reduce((total, row) => total + row.cny, 0),
     pricedSteps,
     unpricedSteps,
@@ -141,37 +154,35 @@ export function estimateCost(tracker: CostTracker): CostEstimate {
  */
 export function addCostEstimates(values: Iterable<CostEstimate>): CostEstimate {
   const rows = new Map<string, CostBreakdown>()
-  let usd = 0
   let cny = 0
   let pricedSteps = 0
   let unpricedSteps = 0
 
   for (const value of values) {
-    usd += value.usd
     cny += value.cny
     pricedSteps += value.pricedSteps
     unpricedSteps += value.unpricedSteps
     for (const row of value.breakdown) {
-      const key = `${row.provider}:${row.model}`
+      const key = `${row.provider}:${row.model}:${row.price.period}`
       const previous = rows.get(key)
       rows.set(key, previous === undefined
         ? row
         : {
             ...previous,
             tokens: addTokens(previous.tokens, row.tokens),
-            usd: previous.usd + row.usd,
             cny: previous.cny + row.cny,
           })
     }
   }
 
   return {
-    usd,
     cny,
     pricedSteps,
     unpricedSteps,
     breakdown: [...rows.values()].sort((left, right) =>
-      `${left.provider}:${left.model}`.localeCompare(`${right.provider}:${right.model}`),
+      `${left.provider}:${left.model}:${left.price.period}`.localeCompare(
+        `${right.provider}:${right.model}:${right.price.period}`,
+      ),
     ),
   }
 }
@@ -232,6 +243,12 @@ function readToken(value: unknown): number | undefined {
     : undefined
 }
 
+function readTimestamp(value: unknown): number | undefined {
+  return Number.isSafeInteger(value) && Number(value) >= 0
+    ? Number(value)
+    : undefined
+}
+
 function stepKey(turn: unknown, step: unknown): string | undefined {
   return Number.isSafeInteger(turn) && Number(turn) >= 0
     && Number.isSafeInteger(step) && Number(step) >= 0
@@ -261,10 +278,10 @@ function addTokens(left: TokenBuckets, right: TokenBuckets): TokenBuckets {
 
 function priceTokens(tokens: TokenBuckets, price: ModelPrice): number {
   return (
-    tokens.uncachedInputTokens * price.cacheMissUsdPerMillion
-    + tokens.cacheReadTokens * price.cacheHitUsdPerMillion
-    + tokens.cacheWriteTokens * price.cacheWriteUsdPerMillion
-    + tokens.outputTokens * price.outputUsdPerMillion
+    tokens.uncachedInputTokens * price.cacheMissCnyPerMillion
+    + tokens.cacheReadTokens * price.cacheHitCnyPerMillion
+    + tokens.cacheWriteTokens * price.cacheWriteCnyPerMillion
+    + tokens.outputTokens * price.outputCnyPerMillion
   ) / 1_000_000
 }
 

@@ -42,7 +42,7 @@ describe('packed community plugin', () => {
       bugs?: { url?: string }
       homepage?: string
     }
-    expect(manifest.version).toBe('0.3.0')
+    expect(manifest.version).toBe('0.3.1')
     expect(manifest.dsh?.client?.platform).toBe('web')
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
     expect(manifest.repository?.url).toBe(

@@ -143,7 +143,7 @@ describe('MissionControlRuntime', () => {
     await vi.advanceTimersByTimeAsync(250)
 
     const update = sink.messages.findLast(message => message.type === 'token/update')
-    expect(update?.cost.usd).toBeCloseTo(0.28)
+    expect(update?.cost.cny).toBeCloseTo(4.5)
   })
 
   it('keeps earlier Flash cost when a later step switches to Pro', async () => {
@@ -168,7 +168,7 @@ describe('MissionControlRuntime', () => {
     await vi.advanceTimersByTimeAsync(250)
 
     const update = sink.messages.findLast(message => message.type === 'token/update')
-    expect(update?.cost.usd).toBeCloseTo(1.15)
+    expect(update?.cost.cny).toBeCloseTo(18)
   })
 
   it('includes a newly created Session-backed child in total cost', async () => {
@@ -189,7 +189,7 @@ describe('MissionControlRuntime', () => {
 
     const update = sink.messages.findLast(message => message.type === 'token/update')
     expect(update).toMatchObject({ sessionId: 'child' })
-    expect(update?.totalCost.usd).toBeCloseTo(0.87)
+    expect(update?.totalCost.cny).toBeCloseTo(13.5)
   })
 
   it('finishes a Tool call that was already open in the initial snapshot', () => {

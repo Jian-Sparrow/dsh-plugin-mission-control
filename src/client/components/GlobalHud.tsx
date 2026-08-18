@@ -3,7 +3,7 @@ import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PreviewMode } from '../../config.ts'
 import type { MissionStoreSnapshot } from '../store.ts'
 import type { NS } from '../locales.ts'
-import { costCoverage, formatCny, formatUsd } from '../cost-format.ts'
+import { costCoverage, formatCny } from '../cost-format.ts'
 
 /** HUD rendering inputs. */
 export interface GlobalHudProps {
@@ -45,19 +45,22 @@ export function GlobalHud({ state, sessionTitle, previewMode, t }: GlobalHudProp
             <summary>{t('hud.costDetails')}</summary>
             <div className="mc-cost__details">
               <strong>{t('hud.notBill')}</strong>
-              <span>{t('hud.usdSubtotal')}: <strong>{formatUsd(cost)}</strong></span>
-              <span>{t('hud.exchangeRate', { rate: pricing.usdToCny })}</span>
               <span>{t('hud.priceCheckedAt', { date: pricing.priceCheckedAt })}</span>
-              <span>{t('hud.fxEffectiveAt', { date: pricing.fxEffectiveAt })}</span>
+              <span>{t('hud.pricingSchedule', { hours: pricing.peakHours })}</span>
+              <span>{t('hud.pricedCoverage', {
+                priced: cost.pricedSteps,
+                total: cost.pricedSteps + cost.unpricedSteps,
+              })}</span>
               {cost.unpricedSteps === 0
                 ? null
                 : <span>{t('hud.unpricedSteps', { count: cost.unpricedSteps })}</span>}
               {cost.breakdown.map(row => (
-                <div className="mc-cost__model" key={`${row.provider}:${row.model}`}>
+                <div className="mc-cost__model" key={`${row.provider}:${row.model}:${row.price.period}`}>
                   <strong>{row.provider} / {row.model}</strong>
-                  <span>{t('hud.modelPrice', { model: row.model })}: ${row.price.cacheHitUsdPerMillion}/M cache hit · ${row.price.cacheMissUsdPerMillion}/M cache miss · ${row.price.outputUsdPerMillion}/M output · ${row.price.cacheWriteUsdPerMillion}/M cache write</span>
+                  <span>{t(`hud.period.${row.price.period}`)}</span>
+                  <span>{t('hud.modelPrice', { model: row.model })}: ¥{row.price.cacheHitCnyPerMillion}/M cache hit · ¥{row.price.cacheMissCnyPerMillion}/M cache miss · ¥{row.price.outputCnyPerMillion}/M output · ¥{row.price.cacheWriteCnyPerMillion}/M cache write</span>
                   <span>{t('hud.input')}: {format(row.tokens.uncachedInputTokens)} · {t('hud.output')}: {format(row.tokens.outputTokens)} · {t('hud.cacheRead')}: {format(row.tokens.cacheReadTokens)} · {t('hud.cacheWrite')}: {format(row.tokens.cacheWriteTokens)}</span>
-                  <span>USD {formatUsd(row)} · CNY {formatCny(row)}</span>
+                  <span>CNY {formatCny(row)}</span>
                 </div>
               ))}
             </div>

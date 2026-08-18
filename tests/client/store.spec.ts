@@ -32,9 +32,9 @@ describe('MissionStore', () => {
   })
 
   it('filters Tool rows and totals to the selected Agent', () => {
-    const rootCost = cost(0.14, 0.95, 1)
-    const childCost = cost(0.07, 0.5, 1)
-    const totalCost = cost(0.21, 1.45, 2)
+    const rootCost = cost(0.95, 1)
+    const childCost = cost(0.5, 1)
+    const totalCost = cost(1.45, 2)
     const store = new MissionStore({ generation: 1, maxLiveRows: 10, velocityWindowMs: 5_000 })
     store.receive(snapshotMessage('s1', 1, {
       rootId: 'root',
@@ -56,8 +56,8 @@ describe('MissionStore', () => {
     expect(store.getSnapshot().visibleTools.map(item => item.callId)).toEqual(['a', 'b'])
     expect(store.getSnapshot().visibleCost).toEqual(totalCost)
 
-    const childReplacement = cost(0.07, 0.55, 1)
-    const totalReplacement = cost(0.21, 1.5, 2)
+    const childReplacement = cost(0.55, 1)
+    const totalReplacement = cost(1.5, 2)
     store.receive(tokenUpdate('s1', 1, 1, 10, 1_000, {
       sessionId: 'child',
       cost: childReplacement,
@@ -260,9 +260,9 @@ function tokens(value: number) {
 }
 
 function zeroCost() {
-  return { usd: 0, cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
+  return { cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
 }
 
-function cost(usd: number, cny: number, pricedSteps: number) {
-  return { ...zeroCost(), usd, cny, pricedSteps }
+function cost(cny: number, pricedSteps: number) {
+  return { ...zeroCost(), cny, pricedSteps }
 }

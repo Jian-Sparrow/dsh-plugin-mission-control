@@ -62,16 +62,16 @@ The HUD token fields come from the Harness token-meter projection:
 
 ## Cost estimation
 
-Mission Control calculates an offline estimate only for exact `deepseek-official` routes that match its versioned catalog. Usage is attributed to the provider and model recorded for each `turn`/`step`, so changing models does not reprice earlier work. A finalized usage record replaces an earlier streaming usage sample for the same step instead of being counted twice.
+Mission Control calculates an offline estimate only for exact `deepseek-official` routes that match its versioned catalog. Each step inherits the latest recorded request header until a later header changes the route, so unchanged multi-step Sessions remain fully priced while model switches do not reprice earlier work. A finalized usage record replaces an earlier streaming usage sample for the same step instead of being counted twice.
 
-The catalog bundled in this release was checked against [DeepSeek's official pricing page](https://api-docs.deepseek.com/quick_start/pricing) on 2026-08-17:
+The catalog bundled in this release was checked against [DeepSeek's official Chinese pricing page](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) on 2026-08-18. Prices below are CNY per million tokens:
 
-- `deepseek-v4-flash`: cache hit $0.0028/M, cache miss $0.14/M, output $0.28/M.
-- `deepseek-v4-pro`: cache hit $0.003625/M, cache miss $0.435/M, output $0.87/M.
-- Cache write: $0/M for both catalog routes because DeepSeek does not publish a separate cache-write charge for these routes.
-- Reference conversion: 1 USD = 6.7894 CNY (2026-07-31), from the [People's Bank of China-authorized central parity publication](https://fec.mofcom.gov.cn/article/zyfw/jrfw/jrfwywzn/jrfwwh/hlfxglzy/202607/7208.html).
+- `deepseek-v4-flash`: off-peak ¥0.05 cache hit, ¥1.50 cache miss, ¥4.50 output; peak ¥0.10, ¥3.00, and ¥9.00 respectively.
+- `deepseek-v4-pro`: off-peak ¥0.15 cache hit, ¥4.50 cache miss, ¥13.50 output; peak ¥0.30, ¥9.00, and ¥27.00 respectively.
+- Peak hours are 09:00–12:00 and 14:00–18:00 China Standard Time. All other times are off-peak.
+- Cache write is ¥0/M because DeepSeek does not publish a separate cache-write charge for these routes.
 
-For each priced step, the plugin calculates `USD = uncached input × cache-miss price + cache reads × cache-hit price + cache writes × 0 + output × output price`, with Token counts divided by one million. It converts the unrounded USD subtotal to CNY using the bundled reference rate. The HUD reports full coverage when every observed step has an exact price, a partial estimate when some steps are excluded, and **No price** when no observed step can be priced. Unknown providers, model aliases, unknown models, and missing request routes remain unpriced rather than being treated as free.
+For each priced step, the plugin selects the peak or off-peak band from the step start time and calculates `CNY = uncached input × cache-miss price + cache reads × cache-hit price + cache writes × 0 + output × output price`, with Token counts divided by one million. The HUD reports the priced-step fraction, full coverage when every observed step has an exact price, a partial estimate when some steps are excluded, and **No price** when no observed step can be priced. Unknown providers, model aliases, unknown models, missing request routes, and missing timestamps remain unpriced rather than being treated as free.
 
 **Estimate only, not an actual bill.** The amount does not include taxes, account-specific terms, promotions, rounding rules, or provider-side billing adjustments, and the plugin never queries account or billing APIs at runtime.
 
@@ -126,7 +126,7 @@ pnpm pack --dry-run
 
 The host entry is ESM at `dsh-plugin-mission-control`; DSH Web loads `dsh-plugin-mission-control/client` through the browser module loader. The browser bundle externalizes React and Cordis-provided runtimes.
 
-Before every release, maintainers must verify both official source pages, update `src/pricing.ts` values, revision and dates when needed, update the exact catalog tests and both README files together, and run `pnpm run verify:release`. Runtime price or exchange-rate fetching must not be introduced.
+Before every release, maintainers must verify the official Chinese pricing page, update `src/pricing.ts` values, revision and dates when needed, update the exact catalog tests and both README files together, and run `pnpm run verify:release`. Runtime price fetching must not be introduced.
 
 ## License
 

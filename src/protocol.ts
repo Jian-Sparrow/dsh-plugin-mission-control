@@ -113,10 +113,11 @@ const tokenBucketsSchema = z.strictObject({
 const modelPriceSchema = z.strictObject({
   provider: z.literal('deepseek-official'),
   model: z.enum(['deepseek-v4-flash', 'deepseek-v4-pro']),
-  cacheHitUsdPerMillion: z.number().finite().nonnegative(),
-  cacheMissUsdPerMillion: z.number().finite().nonnegative(),
-  outputUsdPerMillion: z.number().finite().nonnegative(),
-  cacheWriteUsdPerMillion: z.literal(0),
+  period: z.enum(['off-peak', 'peak']),
+  cacheHitCnyPerMillion: z.number().finite().nonnegative(),
+  cacheMissCnyPerMillion: z.number().finite().nonnegative(),
+  outputCnyPerMillion: z.number().finite().nonnegative(),
+  cacheWriteCnyPerMillion: z.literal(0),
 })
 
 const costBreakdownSchema = z.strictObject({
@@ -124,12 +125,10 @@ const costBreakdownSchema = z.strictObject({
   model: identifier,
   price: modelPriceSchema,
   tokens: tokenBucketsSchema,
-  usd: z.number().finite().nonnegative(),
   cny: z.number().finite().nonnegative(),
 })
 
 const costEstimateSchema = z.strictObject({
-  usd: z.number().finite().nonnegative(),
   cny: z.number().finite().nonnegative(),
   pricedSteps: nonNegativeInteger,
   unpricedSteps: nonNegativeInteger,
@@ -137,12 +136,11 @@ const costEstimateSchema = z.strictObject({
 })
 
 const pricingMetadataSchema = z.strictObject({
-  revision: z.literal('deepseek-2026-08-17'),
-  priceCheckedAt: z.literal('2026-08-17'),
-  priceSource: z.literal('https://api-docs.deepseek.com/quick_start/pricing'),
-  usdToCny: z.literal(6.7894),
-  fxEffectiveAt: z.literal('2026-07-31'),
-  fxSource: z.literal('https://fec.mofcom.gov.cn/article/zyfw/jrfw/jrfwywzn/jrfwwh/hlfxglzy/202607/7208.html'),
+  revision: z.literal('deepseek-2026-08-18'),
+  priceCheckedAt: z.literal('2026-08-18'),
+  priceSource: z.literal('https://api-docs.deepseek.com/zh-cn/quick_start/pricing/'),
+  timeZone: z.literal('Asia/Shanghai'),
+  peakHours: z.literal('09:00-12:00, 14:00-18:00'),
 })
 
 const agentStatusSchema = z.enum([

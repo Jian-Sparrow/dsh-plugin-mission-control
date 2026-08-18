@@ -214,5 +214,5 @@ function tokens(value: number) {
 }
 
 function zeroCost() {
-  return { usd: 0, cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
+  return { cny: 0, pricedSteps: 0, unpricedSteps: 0, breakdown: [] }
 }
